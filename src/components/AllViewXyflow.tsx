@@ -4,53 +4,22 @@ import {
     ReactFlow,
     Background,
     Controls,
-    MiniMap,
     useNodesState,
-    useEdgesState, type Edge as XyFlowEdge, type Node as XyFlowNode
+    useEdgesState
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import dagre from "dagre";
 import {Divider, Flex} from "antd";
+import {EventNode} from "./EventNode.tsx";
+import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
+import prettifyGraph from "./prettifyGraph.ts";
 
-const nodeWidth = 120;
-const nodeHeight = 50;
-
-function prettifyGraph(nodes, edges, direction: "LR" | "TB" = "LR"): { nodes: XyFlowNode[], edges: XyFlowEdge[] } {
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-    const isHorizontal = direction === "LR";
-    dagreGraph.setGraph({rankdir: direction});
-
-    nodes.forEach((node) => {
-        dagreGraph.setNode(node.id, {width: nodeWidth, height: nodeHeight});
-    });
-
-    edges.forEach((edge) => {
-        dagreGraph.setEdge(edge.source, edge.target);
-    });
-
-    dagre.layout(dagreGraph);
-
-    const layoutedNodes = nodes.map((node) => {
-        const nodeWithPosition = dagreGraph.node(node.id);
-        return {
-            ...node,
-            targetPosition: isHorizontal ? "left" : "top",
-            sourcePosition: isHorizontal ? "right" : "bottom",
-            position: {
-                x: nodeWithPosition.x - nodeWidth / 2,
-                y: nodeWithPosition.y - nodeHeight / 2
-            }
-        };
-    });
-
-    return {nodes: layoutedNodes, edges: edges};
-}
+const nodeTypesForXyflow = {
+    EventNode: EventNode,
+};
 
 function AllViewXyflow() {
-    const [nodes, setNodes, onNodesChange] = useNodesState<XyFlowNode>([]);
-    const [edges, setEdges, onEdgesChange] = useEdgesState<XyFlowEdge>([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState<XfNode>([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<XfEdge>([]);
 
     const getAllQuery = useGetHistoryGetall();
     const rawData = useMemo(() => getAllQuery.data?.data ?? {events: [], relationships: []}, [getAllQuery.data])
@@ -60,8 +29,9 @@ function AllViewXyflow() {
         () => {
             const nodes = rawData.events.map((n) => ({
                 id: n.id.toString(),
-                data: {label: n.id},
-                position: {x: 0, y: 0}
+                data: {title: n.title, description: n.description, id: n.id},
+                position: {x: 0, y: 0},
+                type: "EventNode"
             }));
 
             const edges = rawData.relationships.map((r) => ({
@@ -92,8 +62,8 @@ function AllViewXyflow() {
                             onNodesChange={onNodesChange}
                             onEdgesChange={onEdgesChange}
                             fitView
+                            nodeTypes={nodeTypesForXyflow}
                         >
-                            {/*<MiniMap/>*/}
                             <Controls showInteractive={true}/>
                             <Background/>
                         </ReactFlow>

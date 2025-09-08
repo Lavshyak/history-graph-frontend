@@ -1,4 +1,4 @@
-import {useGetHistoryGetall} from "../gen";
+import {useGetHistoryGetall} from "../../gen";
 import {Bar, FlowGraph, NetworkGraph} from "@ant-design/charts";
 import {Divider, Flex, List, Splitter} from "antd";
 import SplitBar from "antd/es/splitter/SplitBar";

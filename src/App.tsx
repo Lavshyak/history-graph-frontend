@@ -2,10 +2,10 @@
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'*/
 import './App.css'
-import AllViewAntdCharts from "./components/AllViewAntdCharts.tsx";
+import AllViewAntdCharts from "./components/Trash/AllViewAntdCharts.tsx";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import AllViewXyflow from "./components/AllViewXyflow.tsx";
-import Flow from "./components/EmptyViewXyflow.tsx";
+import Flow from "./components/Trash/EmptyViewXyflow.tsx";
 
 
 const queryClient = new QueryClient()
