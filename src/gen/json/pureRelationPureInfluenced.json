@@ -1,0 +1,1 @@
+{"required":["id","fromId","toId"],"type":"object","properties":{"id":{"type":"string","format":"uuid"},"fromId":{"type":"string","format":"uuid"},"toId":{"type":"string","format":"uuid"}},"x-readme-ref-name":"PureRelationPureInfluenced"}

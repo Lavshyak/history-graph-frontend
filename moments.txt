@@ -1,0 +1,9 @@
+@neo4j-nvl/react - doesn't work in current project and the license is not suitable.
+
+@ant-design/charts - not universal, and it seems that you can't add your own logic to the graph.
+
+https://github.com/xyflow/xyflow - something cool, MIT:
+> React Flow 12 @xyflow/react packages/react
+React Flow 11 reactflow v11 branch
+Svelte Flow @xyflow/svelte packages/svelte
+Shared helper library @xyflow/system packages/system

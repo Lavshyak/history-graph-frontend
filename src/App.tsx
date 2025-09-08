@@ -2,8 +2,10 @@
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'*/
 import './App.css'
-import AllView from "./components/AllView.tsx";
+import AllViewAntdCharts from "./components/AllViewAntdCharts.tsx";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import AllViewXyflow from "./components/AllViewXyflow.tsx";
+import Flow from "./components/EmptyViewXyflow.tsx";
 
 
 const queryClient = new QueryClient()
@@ -13,7 +15,9 @@ function App() {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <AllView/>
+            {/*<AllViewAntdCharts/>*/}
+            <AllViewXyflow/>
+            {/*<Flow/>*/}
         </QueryClientProvider>
         /*<>
           <div>

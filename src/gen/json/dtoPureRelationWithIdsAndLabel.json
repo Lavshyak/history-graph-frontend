@@ -1,0 +1,1 @@
+{"required":["id","fromId","toId","label"],"type":"object","properties":{"id":{"type":"string","format":"uuid"},"fromId":{"type":"string","format":"uuid"},"toId":{"type":"string","format":"uuid"},"label":{"type":"string"}},"x-readme-ref-name":"DtoPureRelationWithIdsAndLabel"}

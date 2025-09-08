@@ -3,12 +3,12 @@
  * Do not edit manually.
  */
 
-import type { EventsAndRelationships } from '../EventsAndRelationships.ts'
+import type { DtoEventsAndRelationships } from '../DtoEventsAndRelationships.ts'
 
 /**
  * @description OK
  */
-export type GetHistoryGetall200 = EventsAndRelationships
+export type GetHistoryGetall200 = DtoEventsAndRelationships
 
 export type GetHistoryGetallQueryResponse = GetHistoryGetall200
 

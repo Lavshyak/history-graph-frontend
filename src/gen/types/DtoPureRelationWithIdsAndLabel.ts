@@ -3,7 +3,7 @@
  * Do not edit manually.
  */
 
-export type PureRelationWithIdsAndLabel = {
+export type DtoPureRelationWithIdsAndLabel = {
   /**
    * @type string, uuid
    */

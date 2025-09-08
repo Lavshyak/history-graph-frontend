@@ -3,7 +3,7 @@ import {Bar, FlowGraph, NetworkGraph} from "@ant-design/charts";
 import {Divider, Flex, List, Splitter} from "antd";
 import SplitBar from "antd/es/splitter/SplitBar";
 
-function AllView() {
+function AllViewAntdCharts() {
     const getAllQuery = useGetHistoryGetall()
     let data = getAllQuery.data?.data
     if (!data) {
@@ -56,4 +56,4 @@ function AllView() {
     </div>)
 }
 
-export default AllView
+export default AllViewAntdCharts
