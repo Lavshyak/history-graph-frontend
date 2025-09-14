@@ -2,8 +2,20 @@
 
 @ant-design/charts - not universal, and it seems that you can't add your own logic to the graph.
 
-https://github.com/xyflow/xyflow - something cool, MIT:
+https://github.com/xyflow/xyflow, MIT:
 > React Flow 12 @xyflow/react packages/react
 React Flow 11 reactflow v11 branch
 Svelte Flow @xyflow/svelte packages/svelte
 Shared helper library @xyflow/system packages/system
+-- best
+
+regraph: webgl, problems with react components in node render.
+
+react-vis-network-graph: possible to render react components in nodes, but it is not convenient and may be performance issues.
+
+react-d3-graph: MTI, old react.
+npm install d3@^5.5.0      # if you don't have d3 already
+npm install react@^16.4.1  # if you don't have react already
+npm install react-d3-graph
+
+visx - ok, but doesn't provide layout.

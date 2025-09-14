@@ -1,21 +1,16 @@
-
 import dagre from "dagre";
-import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
-
-export type NodeWithId = {
-    id: string,
-};
-
-export type EdgeWithSourceIdAndTargetId = {
-    source: string,
-    target: string,
-};
+import {Position} from "@xyflow/react";
 
 // ai slop
-export default function prettifyGraph(nodes:NodeWithId[], edges : EdgeWithSourceIdAndTargetId[], direction: "LR" | "TB" = "LR", nodeWidth: number = 120, nodeHeight: number = 50): {
-    nodes: XfNode[],
-    edges: XfEdge[]
-} {
+export default function prettifyGraph<TNode, TEdge>(
+    nodes: ({
+        id: string
+    } & TNode)[],
+    edges: ({
+        source: string,
+        target: string,
+    } & TEdge)[],
+    direction: "LR" | "TB" = "LR", nodeWidth: number = 240, nodeHeight: number = 100) {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -36,11 +31,11 @@ export default function prettifyGraph(nodes:NodeWithId[], edges : EdgeWithSource
         const nodeWithPosition = dagreGraph.node(node.id);
         return {
             ...node,
-            targetPosition: isHorizontal ? "left" : "top",
-            sourcePosition: isHorizontal ? "right" : "bottom",
+            targetPosition: isHorizontal ? Position.Left : Position.Top,
+            sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
             position: {
-                x: nodeWithPosition.x - nodeWidth / 2,
-                y: nodeWithPosition.y - nodeHeight / 2
+                x: nodeWithPosition.x,
+                y: nodeWithPosition.y
             }
         };
     });

@@ -1,28 +1,48 @@
-import {useGetHistoryGetall} from "../gen";
+import {useGetHistoryGetall} from "../../gen";
 import {useEffect, useMemo} from "react";
 import {
     ReactFlow,
     Background,
     Controls,
     useNodesState,
-    useEdgesState
+    useEdgesState, MarkerType
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {Divider, Flex} from "antd";
 import {EventNode} from "./EventNode.tsx";
 import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
-import prettifyGraph from "./prettifyGraph.ts";
+import prettifyGraph2 from "./prettifyGraph2.ts";
+import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
+import CustomConnectionLine from "./CustomConnectionLine.tsx";
+import FloatingEdge from "./FloatingEdge.tsx";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
+};
+
+const connectionLineStyle = {
+    stroke: '#b1b1b7',
+};
+
+const edgeTypes = {
+    floating: FloatingEdge,
+};
+
+const defaultEdgeOptions = {
+    type: 'floating',
+    markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#b1b1b7',
+    },
 };
 
 function AllViewXyflow() {
     const [nodes, setNodes, onNodesChange] = useNodesState<XfNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<XfEdge>([]);
 
+    console.log("before getAllQuery")
     const getAllQuery = useGetHistoryGetall();
-    const rawData = useMemo(() => getAllQuery.data?.data ?? {events: [], relationships: []}, [getAllQuery.data])
+    const rawData = useMemo(() => getAllQuery.data?.data ?? devDtoEventsAndRelationshipsMock, [getAllQuery.data])
     console.log("rawData:", rawData);
 
     useEffect(
@@ -38,14 +58,20 @@ function AllViewXyflow() {
                 id: r.id.toString(),
                 source: r.fromId.toString(),
                 target: r.toId.toString(),
-                label: r.label
+                label: r.label,
+                type: "floating",
+                data: {label: r.label, id: r.id},
             }));
 
-            const prettified = prettifyGraph(nodes, edges, "LR")
+            /*const prettified = prettifyGraph(nodes, edges, "LR")
             setNodes(prettified.nodes)
-            setEdges(prettified.edges)
+            setEdges(prettified.edges)*/
             /*setNodes(rawData.events)
             setEdges(rawData.relationships)*/
+            prettifyGraph2(nodes, edges, 250, 1000).then(() => {
+                setNodes(nodes)
+                setEdges(edges)
+            })
         },
         [rawData, setNodes, setEdges])
 
@@ -63,6 +89,10 @@ function AllViewXyflow() {
                             onEdgesChange={onEdgesChange}
                             fitView
                             nodeTypes={nodeTypesForXyflow}
+                            edgeTypes={edgeTypes}
+                            defaultEdgeOptions={defaultEdgeOptions}
+                            connectionLineComponent={CustomConnectionLine}
+                            connectionLineStyle={connectionLineStyle}
                         >
                             <Controls showInteractive={true}/>
                             <Background/>
