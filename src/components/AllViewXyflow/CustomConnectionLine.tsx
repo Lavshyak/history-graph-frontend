@@ -1,7 +1,13 @@
-import React from 'react';
-import { getStraightPath } from '@xyflow/react';
+import {type ConnectionLineComponentProps, getStraightPath} from '@xyflow/react';
+import type {XfNode} from "./XyFlowTypeAliases.ts";
 
-function CustomConnectionLine({ fromX, fromY, toX, toY, connectionLineStyle }) {
+function CustomConnectionLine({
+                                  fromX,
+                                  fromY,
+                                  toX,
+                                  toY,
+                                  connectionLineStyle
+                              }: ConnectionLineComponentProps<XfNode>) {
     const [edgePath] = getStraightPath({
         sourceX: fromX,
         sourceY: fromY,
@@ -12,11 +18,8 @@ function CustomConnectionLine({ fromX, fromY, toX, toY, connectionLineStyle }) {
     return (
         <>
             <g>
-                <path style={connectionLineStyle} fill="none" d={edgePath} />
+                <path style={connectionLineStyle} fill="none" d={edgePath}/>
             </g>
-            <p>
-                aaaaaaaaaaaa
-            </p>
         </>
 
     );

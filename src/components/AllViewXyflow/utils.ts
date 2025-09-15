@@ -2,6 +2,7 @@ import { Position, MarkerType } from '@xyflow/react';
 
 // this helper function returns the intersection point
 // of the line between the center of the intersectionNode and the target node
+// @ts-expect-error krasniy zaebal
 function getNodeIntersection(intersectionNode, targetNode) {
     // https://math.stackexchange.com/questions/1724792/an-algorithm-for-finding-the-intersection-point-between-a-center-of-vision-and-a
     const { width: intersectionNodeWidth, height: intersectionNodeHeight } =
@@ -29,6 +30,7 @@ function getNodeIntersection(intersectionNode, targetNode) {
 }
 
 // returns the position (top,right,bottom or right) passed node compared to the intersection point
+// @ts-expect-error krasniy zaebal
 function getEdgePosition(node, intersectionPoint) {
     const n = { ...node.internals.positionAbsolute, ...node };
     const nx = Math.round(n.x);
@@ -53,6 +55,7 @@ function getEdgePosition(node, intersectionPoint) {
 }
 
 // returns the parameters (sx, sy, tx, ty, sourcePos, targetPos) you need to create an edge
+// @ts-expect-error krasniy zaebal
 export function getEdgeParams(source, target) {
     const sourceIntersectionPoint = getNodeIntersection(source, target);
     const targetIntersectionPoint = getNodeIntersection(target, source);

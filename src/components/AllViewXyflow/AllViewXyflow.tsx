@@ -1,20 +1,15 @@
 import {useGetHistoryGetall} from "../../gen";
-import {useEffect, useMemo} from "react";
-import {
-    ReactFlow,
-    Background,
-    Controls,
-    useNodesState,
-    useEdgesState, MarkerType
-} from "@xyflow/react";
+import {useEffect, useMemo, useState} from "react";
+import {Background, Controls, MarkerType, ReactFlow, useEdgesState, useNodesState} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import {Divider, Flex} from "antd";
-import {EventNode} from "./EventNode.tsx";
+import {Button, Divider, Flex, Space, Switch} from "antd";
+import {EventNode, type EventNodeType} from "./EventNode.tsx";
 import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import prettifyGraph2 from "./prettifyGraph2.ts";
 import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
 import CustomConnectionLine from "./CustomConnectionLine.tsx";
-import FloatingEdge from "./FloatingEdge.tsx";
+import FloatingEdge, {type FloatingEdgeType} from "./FloatingEdge.tsx";
+import {EditableContext, MarkEdgeToDeleteContext} from "./Contexts.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -25,7 +20,7 @@ const connectionLineStyle = {
 };
 
 const edgeTypes = {
-    floating: FloatingEdge,
+    FloatingEdge: FloatingEdge,
 };
 
 const defaultEdgeOptions = {
@@ -37,8 +32,21 @@ const defaultEdgeOptions = {
 };
 
 function AllViewXyflow() {
-    const [nodes, setNodes, onNodesChange] = useNodesState<XfNode>([]);
-    const [edges, setEdges, onEdgesChange] = useEdgesState<XfEdge>([]);
+    const [nodesState, setNodes, onNodesChange] = useNodesState<XfNode>([]);
+    const [edgesState, setEdges, onEdgesChange] = useEdgesState<XfEdge>([]);
+    const [isEditable, setIsEditable] = useState<boolean>(false);
+
+    const [edgesMarkedToDelete, setEdgesMarkedToDelete] = useState<string[]>([]);
+    const isHasChanges = edgesMarkedToDelete.length > 0;
+
+    const [markEdgeToDeleteContextValue] = useState({
+        markEdgeToDelete: (edgeId: string) => {
+            setEdgesMarkedToDelete([...edgesMarkedToDelete, edgeId])
+        },
+        undoMarkEdgeToDelete: (edgeId: string) => {
+            setEdgesMarkedToDelete(edgesMarkedToDelete.filter(id => id != edgeId))
+        }
+    })
 
     console.log("before getAllQuery")
     const getAllQuery = useGetHistoryGetall();
@@ -47,62 +55,91 @@ function AllViewXyflow() {
 
     useEffect(
         () => {
-            const nodes = rawData.events.map((n) => ({
+            const nodes = rawData.events.map<EventNodeType>((n) => ({
                 id: n.id.toString(),
-                data: {title: n.title, description: n.description, id: n.id},
+                data: {
+                    id: n.id,
+                    timeFrom: n.timeFrom,
+                    timeTo: n.timeTo,
+                    keywords: n.keywords,
+                    title: n.title,
+                    description: n.description,
+                    label: "надо бы его с бэкенда возвращать"
+                },
                 position: {x: 0, y: 0},
                 type: "EventNode"
             }));
 
-            const edges = rawData.relationships.map((r) => ({
+            const edges = rawData.relationships.map<FloatingEdgeType>((r) => ({
                 id: r.id.toString(),
                 source: r.fromId.toString(),
                 target: r.toId.toString(),
                 label: r.label,
-                type: "floating",
-                data: {label: r.label, id: r.id},
+                type: "FloatingEdge",
+                data: {
+                    id: r.id,
+                    fromId: r.fromId,
+                    toId: r.toId,
+                    label: r.label,
+                    isMarkedAsDelete: false
+                },
             }));
 
-            /*const prettified = prettifyGraph(nodes, edges, "LR")
-            setNodes(prettified.nodes)
-            setEdges(prettified.edges)*/
-            /*setNodes(rawData.events)
-            setEdges(rawData.relationships)*/
-            prettifyGraph2(nodes, edges, 250, 1000).then(() => {
+            prettifyGraph2(nodes, edges, 250, 700).then(() => {
                 setNodes(nodes)
                 setEdges(edges)
             })
         },
         [rawData, setNodes, setEdges])
 
-    console.log("nodes:", nodes);
-    console.log("edges:", edges);
+    console.log("nodesState:", nodesState);
+    console.log("edgesState:", edgesState);
     return (
         <div>
             <Flex vertical>
                 <div style={{color: "black", backgroundColor: "white"}}>
-                    <div style={{height: "50vh", width: "fit"}}>
-                        <ReactFlow
-                            nodes={nodes}
-                            edges={edges}
-                            onNodesChange={onNodesChange}
-                            onEdgesChange={onEdgesChange}
-                            fitView
-                            nodeTypes={nodeTypesForXyflow}
-                            edgeTypes={edgeTypes}
-                            defaultEdgeOptions={defaultEdgeOptions}
-                            connectionLineComponent={CustomConnectionLine}
-                            connectionLineStyle={connectionLineStyle}
-                        >
-                            <Controls showInteractive={true}/>
-                            <Background/>
-                        </ReactFlow>
+                    <div style={{height: "70vh", width: "fit"}}>
+                        <EditableContext value={isEditable}>
+                            <MarkEdgeToDeleteContext value={markEdgeToDeleteContextValue}>
+                                <ReactFlow
+                                    nodes={nodesState}
+                                    edges={edgesState}
+                                    onNodesChange={onNodesChange}
+                                    onEdgesChange={onEdgesChange}
+                                    fitView
+                                    nodeTypes={nodeTypesForXyflow}
+                                    edgeTypes={edgeTypes}
+                                    defaultEdgeOptions={defaultEdgeOptions}
+                                    connectionLineComponent={CustomConnectionLine}
+                                    connectionLineStyle={connectionLineStyle}
+                                >
+                                    <Controls showInteractive={true}/>
+                                    <Background/>
+                                </ReactFlow>
+                            </MarkEdgeToDeleteContext>
+                        </EditableContext>
                     </div>
                 </div>
+                <div style={{
+                    backgroundColor: "white",
+                    color: "black",
+                    position: "relative",
+                    left: 0,
+                    borderTop: "1px solid black",
+                    padding: "10px"
+                }}>
+                    <Space size={50}>
+                        <div>editable: <Switch onChange={(checked) => {
+                            setIsEditable(checked)
+                        }}/></div>
+                        <Button disabled={!isHasChanges || !isEditable}>push changes</Button>
+                    </Space>
+                </div>
+                <Divider style={{borderColor: "green"}}/>
                 <Divider style={{borderColor: "green"}}/>
                 {JSON.stringify(rawData)}
                 <Divider style={{borderColor: "green"}}/>
-                <button onClick={() => getAllQuery.refetch().finally(() => console.log("refetched"))}>
+                <button onClick={() => getAllQuery.refetch().then(() => console.log("refetched"))}>
                     update
                 </button>
             </Flex>
