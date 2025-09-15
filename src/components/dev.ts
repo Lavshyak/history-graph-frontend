@@ -30,24 +30,24 @@ export const devDtoEventsAndRelationshipsMock: DtoEventsAndRelationships = {even
             id: "r1",
             fromId: "id1",
             toId: "id2",
-            label: "l1"
+            label: "1->2"
         },
         {
             id: "r2",
             fromId: "id2",
             toId: "id3",
-            label: "l2"
+            label: "2->3"
         },
         {
             id: "r3",
             fromId: "id3",
             toId: "id1",
-            label: "l3"
+            label: "3->1"
         },
         {
-            id: "3->1",
+            id: "r4",
             fromId: "id1",
             toId: "id3",
-            label: "l4"
+            label: "1->3"
         }
     ]}
