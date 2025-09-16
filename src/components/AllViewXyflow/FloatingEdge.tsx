@@ -10,7 +10,7 @@ import {Button, Collapse, Flex} from 'antd';
 import {getSpecialPath} from "./GetSpecialPath.ts";
 import {useContext, useMemo} from "react";
 import type {XfNode} from "./XyFlowTypeAliases.ts";
-import {EditableContext, MarkEdgeToDeleteContext} from "./Contexts.ts";
+import {EditableContext, MarkEdgeForDeleteContext} from "./Contexts.ts";
 
 export type FloatingEdgeData = {
     id: string,
@@ -35,7 +35,7 @@ function FloatingEdge({
     const sourceNode = useInternalNode(source);
     const targetNode = useInternalNode(target);
     const isEditable = useContext(EditableContext)
-    const markEdgeToDeleteContextValue = useContext(MarkEdgeToDeleteContext)
+    const markEdgeForDeleteContextValue = useContext(MarkEdgeForDeleteContext)
 
     const {sx, sy, tx, ty} = getEdgeParams(sourceNode, targetNode);
 
@@ -115,14 +115,15 @@ function FloatingEdge({
                                     }}>
                                         <Button disabled={!isEditable} onClick={() => {
                                             if(!data.isMarkedAsDelete) {
-                                                markEdgeToDeleteContextValue.markEdgeToDelete(data.id)
+                                                markEdgeForDeleteContextValue.markEdgeForDelete(data.id)
+                                                updateEdge(data.id, {data: {...data, isMarkedAsDelete: true}})
                                             }
                                             else{
-                                                markEdgeToDeleteContextValue.undoMarkEdgeToDelete(data.id)
+                                                markEdgeForDeleteContextValue.undoMarkEdgeForDelete(data.id)
+                                                updateEdge(data.id, {data: {...data, isMarkedAsDelete: false}})
                                             }
-                                            updateEdge(data.id, {data: {...data, isMarkedAsDelete: !data.isMarkedAsDelete}})
                                         }}>
-                                            {data.isMarkedAsDelete ? "Undo delete" : "delete"}
+                                            {data.isMarkedAsDelete ? "undo delete" : "delete"}
                                         </Button>
                                     </Flex>
                                 )

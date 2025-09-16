@@ -2,12 +2,22 @@ import {createContext} from "react";
 
 export const EditableContext = createContext(false);
 
-export const MarkEdgeToDeleteContext = createContext<{
-    markEdgeToDelete: (edgeId: string) => void,
-    undoMarkEdgeToDelete: (edgeId: string) => void
+export const MarkEdgeForDeleteContext = createContext<{
+    markEdgeForDelete: (edgeId: string) => void,
+    undoMarkEdgeForDelete: (edgeId: string) => void
 }>({
-    markEdgeToDelete: () => {
+    markEdgeForDelete: () => {
     },
-    undoMarkEdgeToDelete: () => {
+    undoMarkEdgeForDelete: () => {
+    }
+});
+
+export const MarkNodeForDeleteContext = createContext<{
+    markNodeForDelete: (nodeId: string) => void,
+    undoMarkNodeForDelete: (nodeId: string) => void
+}>({
+    markNodeForDelete: () => {
+    },
+    undoMarkNodeForDelete: () => {
     }
 });

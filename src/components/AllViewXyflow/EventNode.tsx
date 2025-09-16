@@ -1,6 +1,9 @@
-import {Handle, type Node, type NodeProps, Position, useConnection} from "@xyflow/react";
-import {Collapse, Flex} from "antd";
-import type {CSSProperties} from "react";
+import {Handle, type Node, type NodeProps, Position, useConnection, useReactFlow} from "@xyflow/react";
+import {Button, Collapse, Flex} from "antd";
+import {type CSSProperties, useContext} from "react";
+import {EditableContext, MarkNodeForDeleteContext} from "./Contexts.ts";
+import type {XfNode} from "./XyFlowTypeAliases.ts";
+import type {FloatingEdgeType} from "./FloatingEdge.tsx";
 
 export type EventNodeData = {
     id: string,
@@ -9,7 +12,8 @@ export type EventNodeData = {
     title: string,
     description: string,
     label: string,
-    keywords: string[]
+    keywords: string[],
+    isMarkedForDelete: boolean,
 };
 export type EventNodeType = Node<EventNodeData>;
 
@@ -45,6 +49,10 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
 
     const isTarget = connection.inProgress && connection.fromNode.id !== id;
 
+    const isEditable = useContext(EditableContext)
+    const markNodeForDeleteContextValue = useContext(MarkNodeForDeleteContext)
+    const {updateNode} = useReactFlow<XfNode, FloatingEdgeType>()
+
     return (
         <div>
             {/* We want to disable the target handle, if the connection was started from this node */}
@@ -58,7 +66,16 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
                 alignItems: "center",
                 justifyContent: "center"
             }}>
-                <div style={{padding: "10px 10px 10px 10px", backgroundColor: "white"}}>
+                <div style={{
+                    position: "absolute",
+                    backgroundColor: data.isMarkedForDelete ? "red" : "white",
+                    width: "100%",
+                    height: "100%",
+                    opacity: data.isMarkedForDelete ? "0.1" : "0.5",
+                    zIndex: -1,
+                    borderRadius: 10
+                }}/>
+                <div style={{padding: "10px 10px 10px 10px"}}>
                     <Flex vertical>
                         <Collapse items={[{
                             label: (
@@ -74,6 +91,18 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
                                     <div>keywords: [{data.keywords.join(', ')}]</div>
                                     <div>timeFrom: {data.timeFrom.toISOString()}</div>
                                     <div>timeTo: {data.timeTo.toISOString()}</div>
+                                    <Button disabled={!isEditable} onClick={() => {
+                                        if(!data.isMarkedForDelete) {
+                                            markNodeForDeleteContextValue.markNodeForDelete(data.id)
+                                            updateNode(data.id, {data: {...data, isMarkedForDelete: true}})
+                                        }
+                                        else{
+                                            markNodeForDeleteContextValue.undoMarkNodeForDelete(data.id)
+                                            updateNode(data.id, {data: {...data, isMarkedForDelete: false}})
+                                        }
+                                    }}>
+                                        {data.isMarkedForDelete ? "undo delete" : "delete"}
+                                    </Button>
                                 </Flex>
                             )
                         }]}/>

@@ -9,7 +9,7 @@ import prettifyGraph2 from "./prettifyGraph2.ts";
 import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
 import CustomConnectionLine from "./CustomConnectionLine.tsx";
 import FloatingEdge, {type FloatingEdgeType} from "./FloatingEdge.tsx";
-import {EditableContext, MarkEdgeToDeleteContext} from "./Contexts.ts";
+import {EditableContext, MarkEdgeForDeleteContext, MarkNodeForDeleteContext} from "./Contexts.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -34,17 +34,27 @@ const defaultEdgeOptions = {
 function AllViewXyflow() {
     const [nodesState, setNodes, onNodesChange] = useNodesState<XfNode>([]);
     const [edgesState, setEdges, onEdgesChange] = useEdgesState<XfEdge>([]);
-    const [isEditable, setIsEditable] = useState<boolean>(false);
+    const [isEditable, setIsEditable] = useState<boolean>(true);
 
-    const [edgesMarkedToDelete, setEdgesMarkedToDelete] = useState<string[]>([]);
-    const isHasChanges = edgesMarkedToDelete.length > 0;
+    const [edgesMarkedForDelete, setEdgesMarkedForDelete] = useState<string[]>([]);
+    const [nodesMarkedForDelete, setNodesMarkedForDelete] = useState<string[]>([]);
+    const isHasChanges = edgesMarkedForDelete.length > 0 || nodesMarkedForDelete.length > 0;
 
-    const [markEdgeToDeleteContextValue] = useState({
-        markEdgeToDelete: (edgeId: string) => {
-            setEdgesMarkedToDelete([...edgesMarkedToDelete, edgeId])
+    const [markEdgeForDeleteContextValue] = useState({
+        markEdgeForDelete: (edgeId: string) => {
+            setEdgesMarkedForDelete([...edgesMarkedForDelete, edgeId])
         },
-        undoMarkEdgeToDelete: (edgeId: string) => {
-            setEdgesMarkedToDelete(edgesMarkedToDelete.filter(id => id != edgeId))
+        undoMarkEdgeForDelete: (edgeId: string) => {
+            setEdgesMarkedForDelete(edgesMarkedForDelete.filter(id => id != edgeId))
+        }
+    })
+
+    const [markNodeForDeleteContextValue] = useState({
+        markNodeForDelete: (nodeId: string) => {
+            setNodesMarkedForDelete([...nodesMarkedForDelete, nodeId])
+        },
+        undoMarkNodeForDelete: (nodeId: string) => {
+            setNodesMarkedForDelete(nodesMarkedForDelete.filter(id => id != nodeId))
         }
     })
 
@@ -100,23 +110,25 @@ function AllViewXyflow() {
                 <div style={{color: "black", backgroundColor: "white"}}>
                     <div style={{height: "70vh", width: "fit"}}>
                         <EditableContext value={isEditable}>
-                            <MarkEdgeToDeleteContext value={markEdgeToDeleteContextValue}>
-                                <ReactFlow
-                                    nodes={nodesState}
-                                    edges={edgesState}
-                                    onNodesChange={onNodesChange}
-                                    onEdgesChange={onEdgesChange}
-                                    fitView
-                                    nodeTypes={nodeTypesForXyflow}
-                                    edgeTypes={edgeTypes}
-                                    defaultEdgeOptions={defaultEdgeOptions}
-                                    connectionLineComponent={CustomConnectionLine}
-                                    connectionLineStyle={connectionLineStyle}
-                                >
-                                    <Controls showInteractive={true}/>
-                                    <Background/>
-                                </ReactFlow>
-                            </MarkEdgeToDeleteContext>
+                            <MarkEdgeForDeleteContext value={markEdgeForDeleteContextValue}>
+                                <MarkNodeForDeleteContext value={markNodeForDeleteContextValue}>
+                                    <ReactFlow
+                                        nodes={nodesState}
+                                        edges={edgesState}
+                                        onNodesChange={onNodesChange}
+                                        onEdgesChange={onEdgesChange}
+                                        fitView
+                                        nodeTypes={nodeTypesForXyflow}
+                                        edgeTypes={edgeTypes}
+                                        defaultEdgeOptions={defaultEdgeOptions}
+                                        connectionLineComponent={CustomConnectionLine}
+                                        connectionLineStyle={connectionLineStyle}
+                                    >
+                                        <Controls showInteractive={true}/>
+                                        <Background/>
+                                    </ReactFlow>
+                                </MarkNodeForDeleteContext>
+                            </MarkEdgeForDeleteContext>
                         </EditableContext>
                     </div>
                 </div>
@@ -131,7 +143,7 @@ function AllViewXyflow() {
                     <Space size={50}>
                         <div>editable: <Switch onChange={(checked) => {
                             setIsEditable(checked)
-                        }}/></div>
+                        }} checked={isEditable}/></div>
                         <Button disabled={!isHasChanges || !isEditable}>push changes</Button>
                     </Space>
                 </div>
