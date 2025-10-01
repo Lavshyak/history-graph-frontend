@@ -1,44 +1,38 @@
 import {createContext, useContext} from "react";
 import type {EdgeData, EdgeDataIdType} from "../types/EdgeData.ts";
-import type {EdgesState, EdgesStateReducerActionArgs} from "./EdgesStateWrapper.tsx";
+import type {EdgesImmutableDictionary, EdgesState, EdgesStateReducerActionArgs} from "./EdgesStateWrapper.tsx";
 import type {NodeDataIdType} from "../types/NodeData.ts";
+import {immutableDictionary} from "../lib/ImmutableDictionary.ts";
 
 export type EdgesStateContextType = Readonly<{
-    allEdges: Readonly<Record<EdgeDataIdType, EdgeData>>
-    updatedEdges: Readonly<Record<EdgeDataIdType, EdgeData>>
-    deletedEdges: Readonly<Record<EdgeDataIdType, EdgeData>>
-    createdEdges: Readonly<Record<EdgeDataIdType, EdgeData>>
+    allEdges:EdgesImmutableDictionary
+    updatedEdges: EdgesImmutableDictionary
+    deletedEdges: EdgesImmutableDictionary
+    createdEdges: EdgesImmutableDictionary
     edgesState: EdgesState
     readonly updateEdgesState: React.ActionDispatch<[args: EdgesStateReducerActionArgs]>
     getEdgesByNode(nodeId: NodeDataIdType): EdgeData[],
-
-    allEdgesList: readonly EdgeData[],
-    updatedEdgesList: readonly EdgeData[],
-    deletedEdgesList: readonly EdgeData[],
-    createdEdgesList: readonly EdgeData[],
 }>
+
+const defaultEdgesState = {
+    all: immutableDictionary<EdgeDataIdType, EdgeData>({}),
+    updated: immutableDictionary<EdgeDataIdType, EdgeData>({}),
+    deleted: immutableDictionary<EdgeDataIdType, EdgeData>({}),
+    created: immutableDictionary<EdgeDataIdType, EdgeData>({})
+}
 
 export const EdgesStateContext = createContext<EdgesStateContextType>({
 
-    allEdges: {},
-    createdEdges: {},
-    deletedEdges: {},
-    edgesState: {
-        all: {},
-        updated: {},
-        deleted: {},
-        created: {}
-    },
-    updatedEdges: {},
+    allEdges: defaultEdgesState.all,
+    createdEdges: defaultEdgesState.created,
+    deletedEdges: defaultEdgesState.deleted,
+    edgesState: defaultEdgesState,
+    updatedEdges: defaultEdgesState.updated,
     updateEdgesState() {
     },
     getEdgesByNode(): EdgeData[] {
         return []
-    },
-    allEdgesList: [],
-    createdEdgesList: [],
-    deletedEdgesList: [],
-    updatedEdgesList: [],
+    }
 })
 
 export function useEdgesStateContext() {

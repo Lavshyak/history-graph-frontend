@@ -10,27 +10,16 @@ import {
 } from "../types/EdgeData.ts";
 import {EdgesStateContext, type EdgesStateContextType} from "./EdgesStateContext.tsx";
 import type {NodeDataIdType} from "../types/NodeData.ts";
-import type {ImmutableDictionary} from "../lib/ImmutableDictionary.ts";
+import {immutableDictionary, type ImmutableDictionary} from "../lib/ImmutableDictionary.ts";
 
-type EdgesImmutableDictionary = ImmutableDictionary<EdgeDataIdType, EdgeData>
-type EdgeDatasReadonlyRecord = Readonly<Record<EdgeDataIdType, EdgeData>>
+export type EdgesImmutableDictionary = ImmutableDictionary<EdgeDataIdType, EdgeData>
 
 export type EdgesState = Readonly<{
-    all: EdgeDatasReadonlyRecord
-    updated: EdgeDatasReadonlyRecord
-    deleted: EdgeDatasReadonlyRecord
-    created: EdgeDatasReadonlyRecord
+    all: EdgesImmutableDictionary
+    updated: EdgesImmutableDictionary
+    deleted: EdgesImmutableDictionary
+    created: EdgesImmutableDictionary
 }>
-
-export type EdgesStateReducerActionArgs =
-    | { type: "update"; entries: readonly { id: EdgeDataIdType; updatedData: Partial<EdgeUpdatedData> }[] }
-    | { type: "markForDelete"; entries: readonly { id: EdgeDataIdType; markForDelete: boolean }[] }
-    | {
-    type: "markForDeleteBecauseNode";
-    entries: readonly { id: EdgeDataIdType, nodeId: NodeDataIdType; markForDelete: boolean }[]
-}
-    | { type: "addFromSource"; entries: readonly { edgeSourceData: EdgeSourceData }[] }
-    | { type: "create"; entries: readonly { edgeSourceData: EdgeSourceData }[] }
 
 function SyncEdgesState(initialState: EdgesState, newEdgeDatas: readonly EdgeData[]): EdgesState {
     if (newEdgeDatas.length < 1) {
@@ -45,22 +34,25 @@ function SyncEdgesState(initialState: EdgesState, newEdgeDatas: readonly EdgeDat
     }
 }
 
-function SyncAllForEdges(initialAll: EdgeDatasReadonlyRecord, newEdgeDatas: readonly EdgeData[]): Readonly<Record<EdgeDataIdType, EdgeData>> {
-    const resultAll = {...initialAll}
+function SyncAllForEdges(initialAll: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
+    if (newEdgeDatas.length < 1) {
+        return initialAll;
+    }
+    const resultAll: Record<EdgeDataIdType, EdgeData> = {...initialAll}
 
     newEdgeDatas.forEach(nd => {
         resultAll[nd.sourceData.id] = nd
     })
 
-    return resultAll
+    return immutableDictionary(resultAll)
 }
 
-function SyncUpdatedForEdges(initialUpdated: EdgeDatasReadonlyRecord, newEdgeDatas: readonly EdgeData[]) {
+function SyncUpdatedForEdges(initialUpdated: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
     if (newEdgeDatas.length < 1) {
         return initialUpdated;
     }
 
-    const resultUpdated = {...initialUpdated}
+    const resultUpdated: Record<EdgeDataIdType, EdgeData> = {...initialUpdated}
 
     newEdgeDatas.forEach(nd => {
         const key = nd.sourceData.id
@@ -74,11 +66,11 @@ function SyncUpdatedForEdges(initialUpdated: EdgeDatasReadonlyRecord, newEdgeDat
         }
     })
 
-    return resultUpdated
+    return immutableDictionary(resultUpdated)
 }
 
-function SyncCreatedForEdges(initialCreated: EdgeDatasReadonlyRecord, newEdgeDatas: readonly EdgeData[]) {
-    const resultCreated = {...initialCreated}
+function SyncCreatedForEdges(initialCreated: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
+    const resultCreated: Record<EdgeDataIdType, EdgeData> = {...initialCreated}
 
     newEdgeDatas.forEach(nd => {
         if (nd.tech.sourceOrCreated !== "created")
@@ -86,15 +78,15 @@ function SyncCreatedForEdges(initialCreated: EdgeDatasReadonlyRecord, newEdgeDat
         resultCreated[nd.sourceData.id] = nd
     })
 
-    return resultCreated
+    return immutableDictionary(resultCreated)
 }
 
-function SyncDeletedForEdges(initialDeleted: EdgeDatasReadonlyRecord, newEdgeDatas: readonly EdgeData[]) {
+function SyncDeletedForEdges(initialDeleted: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
     if (newEdgeDatas.length < 1) {
         return initialDeleted;
     }
 
-    const resultDeleted = {...initialDeleted}
+    const resultDeleted: Record<EdgeDataIdType, EdgeData> = {...initialDeleted}
 
     newEdgeDatas.forEach((nd) => {
         const key = nd.sourceData.id
@@ -107,8 +99,18 @@ function SyncDeletedForEdges(initialDeleted: EdgeDatasReadonlyRecord, newEdgeDat
         }
     })
 
-    return resultDeleted
+    return immutableDictionary(resultDeleted)
 }
+
+export type EdgesStateReducerActionArgs =
+    | { type: "update"; entries: readonly { id: EdgeDataIdType; updatedData: Partial<EdgeUpdatedData> }[] }
+    | { type: "markForDelete"; entries: readonly { id: EdgeDataIdType; markForDelete: boolean }[] }
+    | {
+    type: "markForDeleteBecauseNode";
+    entries: readonly { id: EdgeDataIdType, nodeId: NodeDataIdType; markForDelete: boolean }[]
+}
+    | { type: "addFromSource"; entries: readonly { edgeSourceData: EdgeSourceData }[] }
+    | { type: "create"; entries: readonly { edgeSourceData: EdgeSourceData }[] }
 
 function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs): EdgesState {
     switch (args.type) {
@@ -233,15 +235,13 @@ function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs)
 
 export function EdgesStateWrapper(children: React.ReactNode) {
     const [edges, updateEdgesState] = useReducer(edgesStateReducer, {
-        all: {},
-        updated: {},
-        deleted: {},
-        created: {}
+        all: immutableDictionary<EdgeDataIdType, EdgeData>({}),
+        updated: immutableDictionary<EdgeDataIdType, EdgeData>({}),
+        deleted: immutableDictionary<EdgeDataIdType, EdgeData>({}),
+        created: immutableDictionary<EdgeDataIdType, EdgeData>({})
     })
 
     const contextValue: EdgesStateContextType = useMemo(() => {
-        const allEdgesList = (Object.entries(edges.all) as [EdgeDataIdType, EdgeData][])
-            .map(([, edgeData]) => edgeData)
         const result : EdgesStateContextType = ({
             allEdges: edges.all,
             updatedEdges: edges.updated,
@@ -250,17 +250,10 @@ export function EdgesStateWrapper(children: React.ReactNode) {
             edgesState: edges,
             updateEdgesState: updateEdgesState,
             getEdgesByNode(nodeId: NodeDataIdType): EdgeData[] {
-                return allEdgesList
+                return edges.all.values
                     .filter((edgeData) =>
                         edgeData.sourceData.fromId === nodeId || edgeData.sourceData.toId === nodeId)
             },
-            allEdgesList: allEdgesList,
-            updatedEdgesList: (Object.entries(edges.updated) as [EdgeDataIdType, EdgeData][])
-                .map(([, edgeData]) => edgeData),
-            deletedEdgesList: (Object.entries(edges.deleted) as [EdgeDataIdType, EdgeData][])
-                .map(([, edgeData]) => edgeData),
-            createdEdgesList: (Object.entries(edges.created) as [EdgeDataIdType, EdgeData][])
-                .map(([, edgeData]) => edgeData),
         })
         return result
     }, [edges])

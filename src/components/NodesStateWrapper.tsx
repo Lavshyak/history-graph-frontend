@@ -7,14 +7,15 @@ import {
 } from "../types/NodeData.ts";
 import {NodesStateContext, type NodesStateContextType} from "./NodesStateContext.tsx";
 import {useEdgesStateContext} from "./EdgesStateContext.tsx";
+import type {ImmutableDictionary} from "../lib/ImmutableDictionary.ts";
 
-type NodeDatasReadonlyRecord = Readonly<Record<NodeDataIdType, NodeData>>
+export type NodesImmutableDictionary = ImmutableDictionary<NodeDataIdType, NodeData>
 
 export type NodesState = Readonly<{
-    all: NodeDatasReadonlyRecord
-    updated: NodeDatasReadonlyRecord
-    deleted: NodeDatasReadonlyRecord
-    created: NodeDatasReadonlyRecord
+    all: NodesImmutableDictionary
+    updated: NodesImmutableDictionary
+    deleted: NodesImmutableDictionary
+    created: NodesImmutableDictionary
 }>
 
 export type NodesStateReducerActionArgs =
@@ -36,7 +37,7 @@ function SyncNodesState(initialState: NodesState, newNodeDatas: readonly NodeDat
     }
 }
 
-function SyncAllForNodes(initialAll: NodeDatasReadonlyRecord, newNodeDatas: readonly NodeData[]): Readonly<Record<NodeDataIdType, NodeData>> {
+function SyncAllForNodes(initialAll: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]): Readonly<Record<NodeDataIdType, NodeData>> {
     const resultAll = {...initialAll}
 
     newNodeDatas.forEach(nd => {
@@ -46,7 +47,7 @@ function SyncAllForNodes(initialAll: NodeDatasReadonlyRecord, newNodeDatas: read
     return resultAll
 }
 
-function SyncUpdatedForNodes(initialUpdated: NodeDatasReadonlyRecord, newNodeDatas: readonly NodeData[]) {
+function SyncUpdatedForNodes(initialUpdated: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]) {
     if (newNodeDatas.length < 1) {
         return initialUpdated;
     }
@@ -68,7 +69,7 @@ function SyncUpdatedForNodes(initialUpdated: NodeDatasReadonlyRecord, newNodeDat
     return resultUpdated
 }
 
-function SyncCreatedForNodes(initialCreated: NodeDatasReadonlyRecord, newNodeDatas: readonly NodeData[]) {
+function SyncCreatedForNodes(initialCreated: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]) {
     const resultCreated = {...initialCreated}
 
     newNodeDatas.forEach(nd => {
@@ -80,7 +81,7 @@ function SyncCreatedForNodes(initialCreated: NodeDatasReadonlyRecord, newNodeDat
     return resultCreated
 }
 
-function SyncDeletedForNodes(initialDeleted: NodeDatasReadonlyRecord, newNodeDatas: readonly NodeData[]) {
+function SyncDeletedForNodes(initialDeleted: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]) {
     if (newNodeDatas.length < 1) {
         return initialDeleted;
     }
