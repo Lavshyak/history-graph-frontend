@@ -11,14 +11,12 @@ import {getSpecialPath} from "./GetSpecialPath.ts";
 import {useContext, useMemo} from "react";
 import type {XfNode} from "./XyFlowTypeAliases.ts";
 import {EditableContext, MarkEdgeForDeleteContext} from "./Contexts.ts";
+import {type ImmutableEdgeData} from "../../types/EdgeData.ts";
 
-export type FloatingEdgeData = {
-    id: string,
-    label: string,
-    isMarkedAsDelete: boolean,
-}
 
-export type FloatingEdgeType = Edge<FloatingEdgeData>
+export type FloatingEdgeDataType = {} & Record<string, unknown> & ImmutableEdgeData
+
+export type FloatingEdgeType = Edge<ImmutableEdgeData>
 
 function FloatingEdge({
                           id,
@@ -31,6 +29,8 @@ function FloatingEdge({
     if (data == null) {
         throw new Error(`data is null in edge id ${id}`);
     }
+
+    const currentData = data.currentData;
 
     const sourceNode = useInternalNode(source);
     const targetNode = useInternalNode(target);
@@ -45,7 +45,7 @@ function FloatingEdge({
         const multipleEdges = getEdges().filter(e =>
             (e.source === source && e.target === target)
             || (e.source === target && e.target === source)
-        ).map(e => e.data!.id as string)
+        ).map(e => e.data!.currentData.id)
             .sort((a, b) => a.localeCompare(b))
             .map((id) => ({edgeId: id, delta: 0}));
 
@@ -57,10 +57,10 @@ function FloatingEdge({
             multipleEdges[i].delta = i - middleIdx;
         }
 
-        const currentDelta = multipleEdges.find(e => e.edgeId === data.id)!.delta
+        const currentDelta = multipleEdges.find(e => e.edgeId === currentData.id)!.delta
 
         return {multipleEdges, currentDelta};
-    }, [data?.id, getEdges, source, target]);
+    }, [currentData.id, getEdges, source, target]);
 
     const {path, labelX, labelY} = getSpecialPath({
         sourceX: sx,
@@ -94,36 +94,35 @@ function FloatingEdge({
                     }}>
                         <div style={{
                             position: "absolute",
-                            backgroundColor: data.isMarkedAsDelete ? "red" : "white",
+                            backgroundColor: data.tech.isMarkedForDelete ? "red" : "white",
                             width: "100%",
                             height: "100%",
-                            opacity: data.isMarkedAsDelete ? "0.1" : "0.5",
+                            opacity: data.tech.isMarkedForDelete ? "0.1" : "0.5",
                             zIndex: -1,
                             borderRadius: 10
                         }}/>
                         <Collapse
                             items={[{
                                 label: (
-                                        <Flex vertical>
-                                            <div>{data?.label}</div>
-                                            <div>{data?.id}</div>
-                                        </Flex>
+                                    <Flex vertical>
+                                        <div>{currentData.label}</div>
+                                        <div>{currentData.id}</div>
+                                    </Flex>
                                 ),
                                 children: (
                                     <Flex vertical style={{
                                         background: "transparent"
                                     }}>
                                         <Button disabled={!isEditable} onClick={() => {
-                                            if(!data.isMarkedAsDelete) {
-                                                markEdgeForDeleteContextValue.markEdgeForDelete(data.id)
-                                                updateEdge(data.id, {data: {...data, isMarkedAsDelete: true}})
-                                            }
-                                            else{
-                                                markEdgeForDeleteContextValue.undoMarkEdgeForDelete(data.id)
-                                                updateEdge(data.id, {data: {...data, isMarkedAsDelete: false}})
+                                            if (!data?.tech.isMarkedForDelete) {
+                                                markEdgeForDeleteContextValue.markEdgeForDelete(currentData.id)
+                                                updateEdge(currentData.id, {data: {...data, isMarkedAsDelete: true}})
+                                            } else {
+                                                markEdgeForDeleteContextValue.undoMarkEdgeForDelete(currentData.id)
+                                                updateEdge(currentData.id, {data: {...data, isMarkedAsDelete: false}})
                                             }
                                         }}>
-                                            {data.isMarkedAsDelete ? "undo delete" : "delete"}
+                                            {data.isMarkedForDelete ? "undo delete" : "delete"}
                                         </Button>
                                     </Flex>
                                 )

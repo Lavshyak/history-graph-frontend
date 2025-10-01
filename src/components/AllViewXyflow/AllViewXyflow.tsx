@@ -1,6 +1,6 @@
 import {useGetHistoryGetall} from "../../gen";
 import {useEffect, useMemo, useState} from "react";
-import {Background, Controls, MarkerType, ReactFlow, useEdgesState, useNodesState} from "@xyflow/react";
+import {Background, Controls, MarkerType, ReactFlow, useEdgesState, useNodesState, useReactFlow} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {Button, Divider, Flex, Space, Switch} from "antd";
 import {EventNode, type EventNodeType} from "./EventNode.tsx";
@@ -8,7 +8,7 @@ import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import prettifyGraph2 from "./prettifyGraph2.ts";
 import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
 import CustomConnectionLine from "./CustomConnectionLine.tsx";
-import FloatingEdge, {type FloatingEdgeType} from "./FloatingEdge.tsx";
+import FloatingEdge, {FloatingEdgeData, type FloatingEdgeType} from "./FloatingEdge.tsx";
 import {EditableContext, MarkEdgeForDeleteContext, MarkNodeForDeleteContext} from "./Contexts.ts";
 
 const nodeTypesForXyflow = {
@@ -74,26 +74,58 @@ function AllViewXyflow() {
                     keywords: n.keywords,
                     title: n.title,
                     description: n.description,
-                    label: "надо бы его с бэкенда возвращать"
+                    label: "надо бы его с бэкенда возвращать",
+                    isMarkedForDelete: false
                 },
                 position: {x: 0, y: 0},
                 type: "EventNode"
             }));
 
-            const edges = rawData.relationships.map<FloatingEdgeType>((r) => ({
-                id: r.id.toString(),
-                source: r.fromId.toString(),
-                target: r.toId.toString(),
-                label: r.label,
-                type: "FloatingEdge",
-                data: {
-                    id: r.id,
-                    fromId: r.fromId,
-                    toId: r.toId,
+            const edges = rawData.relationships.map<FloatingEdgeType>((r) => {
+
+                const data = new FloatingEdgeData(
+                    {
+                        id: r.id,
+                        label: r.label,
+                        fromId: r.fromId,
+                        toId: r.toId,
+                    }, {
+                    labelUpdated(newValue: string): void {
+                    }
+                }, "source")
+
+                /*const data = {
+                    sourceData: {
+                        id: r.id,
+                        label: r.label,
+                        fromId: r.fromId,
+                        toId: r.toId,
+                    },
+                    updatedData: {
+                        label: undefined
+                    },
+                    isMarkedAsDelete: false,
+                    currentData: null
+                }
+
+                data.currentData = {
+                    get id() {
+                        return data.sourceData.id
+                    },
+                    get label() {
+                        return data.updatedData.label != undefined ? data.updatedData.label : data.sourceData.label
+                    }
+                }*/
+
+                return {
+                    id: r.id.toString(),
+                    source: r.fromId.toString(),
+                    target: r.toId.toString(),
                     label: r.label,
-                    isMarkedAsDelete: false
-                },
-            }));
+                    type: "FloatingEdge",
+                    data: data
+                }
+            });
 
             prettifyGraph2(nodes, edges, 250, 700).then(() => {
                 setNodes(nodes)
