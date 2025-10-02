@@ -1,30 +1,34 @@
 import {createContext, useContext} from "react";
 import type {NodeData, NodeDataIdType} from "../types/NodeData.ts";
-import type {NodesState, NodesStateReducerActionArgs} from "./NodesStateWrapper.tsx";
+import type {NodesImmutableMapContainer, NodesState, NodesStateReducerActionArgs} from "./NodesStateWrapper.tsx";
+import {immutableMapContainerNoCopy} from "../lib/ImmutableDictionary.ts";
 
 export type NodesStateContextType = Readonly<{
-    allNodes: Readonly<Record<NodeDataIdType, NodeData>>
-    updatedNodes: Readonly<Record<NodeDataIdType, NodeData>>
-    deletedNodes: Readonly<Record<NodeDataIdType, NodeData>>
-    createdNodes: Readonly<Record<NodeDataIdType, NodeData>>
+    allNodes: NodesImmutableMapContainer
+    updatedNodes: NodesImmutableMapContainer
+    deletedNodes: NodesImmutableMapContainer
+    createdNodes: NodesImmutableMapContainer
     readonly updateNodesState: React.ActionDispatch<[args: NodesStateReducerActionArgs]>
     nodesState: NodesState
 }>
 
+const defaultNodesState = {
+    all: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+    updated: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+    deleted: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+    created: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+}
+
 export const NodesStateContext = createContext<NodesStateContextType>({
-    allNodes: {},
-    createdNodes: {},
-    deletedNodes: {},
-    nodesState: {
-        all: {},
-        updated: {},
-        deleted: {},
-        created: {}
+    allNodes: defaultNodesState.all,
+    createdNodes: defaultNodesState.created,
+    deletedNodes: defaultNodesState.deleted,
+    updatedNodes: defaultNodesState.updated,
+    updateNodesState() {
     },
-    updateNodesState() {},
-    updatedNodes: {}
+    nodesState: defaultNodesState,
 })
 
-export function useNodesState(){
+export function useNodesState() {
     return useContext(NodesStateContext)
 }

@@ -10,15 +10,17 @@ import {
 } from "../types/EdgeData.ts";
 import {EdgesStateContext, type EdgesStateContextType} from "./EdgesStateContext.tsx";
 import type {NodeDataIdType} from "../types/NodeData.ts";
-import {immutableDictionary, type ImmutableDictionary} from "../lib/ImmutableDictionary.ts";
+import {type ImmutableMapContainer, immutableMapContainerNoCopy} from "../lib/ImmutableDictionary.ts";
 
-export type EdgesImmutableDictionary = ImmutableDictionary<EdgeDataIdType, EdgeData>
+export type EdgesImmutableMapContainer = ImmutableMapContainer<EdgeDataIdType, EdgeData>
+export type NodesIdsEdgesIdsMapContainer = ImmutableMapContainer<NodeDataIdType, EdgeDataIdType>
 
 export type EdgesState = Readonly<{
-    all: EdgesImmutableDictionary
-    updated: EdgesImmutableDictionary
-    deleted: EdgesImmutableDictionary
-    created: EdgesImmutableDictionary
+    all: EdgesImmutableMapContainer
+    updated: EdgesImmutableMapContainer
+    deleted: EdgesImmutableMapContainer
+    created: EdgesImmutableMapContainer
+    nodesIdsEdgesIds: NodesIdsEdgesIdsMapContainer
 }>
 
 function SyncEdgesState(initialState: EdgesState, newEdgeDatas: readonly EdgeData[]): EdgesState {
@@ -34,72 +36,73 @@ function SyncEdgesState(initialState: EdgesState, newEdgeDatas: readonly EdgeDat
     }
 }
 
-function SyncAllForEdges(initialAll: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
+function SyncAllForEdges(initial: EdgesImmutableMapContainer, newEdgeDatas: readonly EdgeData[]): EdgesImmutableMapContainer {
     if (newEdgeDatas.length < 1) {
-        return initialAll;
+        return initial;
     }
-    const resultAll: Record<EdgeDataIdType, EdgeData> = {...initialAll}
+
+    const map = new Map(initial.map.entries())
 
     newEdgeDatas.forEach(nd => {
-        resultAll[nd.sourceData.id] = nd
+        map.set(nd.sourceData.id, nd)
     })
 
-    return immutableDictionary(resultAll)
+    return immutableMapContainerNoCopy(map)
 }
 
-function SyncUpdatedForEdges(initialUpdated: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
+function SyncUpdatedForEdges(initial: EdgesImmutableMapContainer, newEdgeDatas: readonly EdgeData[]): EdgesImmutableMapContainer {
     if (newEdgeDatas.length < 1) {
-        return initialUpdated;
+        return initial;
     }
 
-    const resultUpdated: Record<EdgeDataIdType, EdgeData> = {...initialUpdated}
+    const map = new Map(initial.map.entries())
 
     newEdgeDatas.forEach(nd => {
         const key = nd.sourceData.id
 
         if (nd.tech.hasDataUpdates) {
-            resultUpdated[key] = nd
+            map.set(key, nd)
         } else {
-            if (key in resultUpdated) {
-                delete resultUpdated[key]
-            }
+            map.delete(key)
         }
     })
 
-    return immutableDictionary(resultUpdated)
+    return immutableMapContainerNoCopy(map)
 }
 
-function SyncCreatedForEdges(initialCreated: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
-    const resultCreated: Record<EdgeDataIdType, EdgeData> = {...initialCreated}
+function SyncCreatedForEdges(initial: EdgesImmutableMapContainer, newEdgeDatas: readonly EdgeData[]): EdgesImmutableMapContainer {
+    if (newEdgeDatas.length < 1) {
+        return initial;
+    }
+
+    const map = new Map(initial.map.entries())
 
     newEdgeDatas.forEach(nd => {
         if (nd.tech.sourceOrCreated !== "created")
             return;
-        resultCreated[nd.sourceData.id] = nd
+        map.set(nd.sourceData.id, nd)
     })
 
-    return immutableDictionary(resultCreated)
+    return immutableMapContainerNoCopy(map)
 }
 
-function SyncDeletedForEdges(initialDeleted: EdgesImmutableDictionary, newEdgeDatas: readonly EdgeData[]) {
+function SyncDeletedForEdges(initial: EdgesImmutableMapContainer, newEdgeDatas: readonly EdgeData[]) {
     if (newEdgeDatas.length < 1) {
-        return initialDeleted;
+        return initial;
     }
 
-    const resultDeleted: Record<EdgeDataIdType, EdgeData> = {...initialDeleted}
+    const map = new Map(initial.map.entries())
 
     newEdgeDatas.forEach((nd) => {
         const key = nd.sourceData.id
         if (nd.tech.isGenerallyMarkedForDelete) {
-            resultDeleted[key] = nd
+            map.set(key, nd)
         } else {
-            if (key in resultDeleted) {
-                delete resultDeleted[key]
-            }
+            map.delete(key)
         }
     })
 
-    return immutableDictionary(resultDeleted)
+    return immutableMapContainerNoCopy(map)
 }
 
 export type EdgesStateReducerActionArgs =
@@ -107,51 +110,46 @@ export type EdgesStateReducerActionArgs =
     | { type: "markForDelete"; entries: readonly { id: EdgeDataIdType; markForDelete: boolean }[] }
     | {
     type: "markForDeleteBecauseNode";
-    entries: readonly { id: EdgeDataIdType, nodeId: NodeDataIdType; markForDelete: boolean }[]
+    entries: readonly { edgeId: EdgeDataIdType, nodeId: NodeDataIdType; markForDelete: boolean }[]
 }
     | { type: "addFromSource"; entries: readonly { edgeSourceData: EdgeSourceData }[] }
     | { type: "create"; entries: readonly { edgeSourceData: EdgeSourceData }[] }
 
+export class EdgeNotFoundError extends Error {
+    constructor() {
+        super("EdgeNotFound");
+    }
+}
+
 function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs): EdgesState {
     switch (args.type) {
         case "update": {
-            //const initialEdges: EdgeData[] = []
-            const resultEdges: EdgeData[] = []
-            args.entries.forEach(entry => {
-                const initialEdge = state.all[entry.id];
-                if (!initialEdge) return state;
-
+            const resultEdges = args.entries.map(entry => {
+                const initialEdge = state.all.map.get(entry.id);
+                if (!initialEdge) throw new EdgeNotFoundError();
                 const updatedData = {...initialEdge.updatedData, ...entry.updatedData}
                 const currentData = calculateCurrentEdgeData(initialEdge.sourceData, updatedData)
                 const hasDataUpdates = calculateHasEdgeDataUpdates(initialEdge.sourceData, updatedData)
 
-                const resultEdge = {
+                return {
                     ...initialEdge,
                     updatedData: updatedData,
                     currentData: currentData,
                     tech: {...initialEdge.tech, hasDataUpdates: hasDataUpdates},
-                }
-
-                //initialEdges.push(initialEdge)
-                resultEdges.push(resultEdge)
+                } as EdgeData
             })
 
             return SyncEdgesState(state, resultEdges);
         }
 
         case "markForDelete": {
-            //const initialEdges: EdgeData[] = []
-            const resultEdges: EdgeData[] = []
-
-            args.entries.forEach(entry => {
-                const initialEdge = state.all[entry.id];
-                if (!initialEdge) return state;
-                const resultEdge = {
+            const resultEdges = args.entries.map(entry => {
+                const initialEdge = state.all.map.get(entry.id);
+                if (!initialEdge) throw new EdgeNotFoundError();
+                return {
                     ...initialEdge,
                     tech: {...initialEdge.tech, isExplicitlyMarkedForDelete: entry.markForDelete},
                 }
-                //initialEdges.push(initialEdge)
-                resultEdges.push(resultEdge)
             })
 
             return SyncEdgesState(state, resultEdges);
@@ -159,12 +157,10 @@ function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs)
         }
 
         case "markForDeleteBecauseNode": {
-            //const initialEdges: EdgeData[] = []
-            const resultEdges: EdgeData[] = []
-
+            const resultEdgesMap = new Map<EdgeDataIdType, EdgeData>()
             args.entries.forEach(entry => {
-                const initialEdge = state.all[entry.id];
-                if (!initialEdge) return state;
+                const initialEdge = resultEdgesMap.get(entry.edgeId) ?? state.all.map.get(entry.edgeId);
+                if (!initialEdge) throw new EdgeNotFoundError();
                 const {nodeId, markForDelete} = entry
 
                 const resultMarkedForDeleteBecauseNodes: readonly NodeDataIdType[] =
@@ -177,22 +173,18 @@ function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs)
                     markedForDeleteBecauseNodes: resultMarkedForDeleteBecauseNodes
                 }
 
-                const resultEdge = {
+                resultEdgesMap.set(entry.edgeId, {
                     ...initialEdge,
                     tech: {...initialEdge.tech, ...techDataPart},
-                }
-
-                resultEdges.push(resultEdge)
+                })
             })
 
-
-            return SyncEdgesState(state, resultEdges);
+            return SyncEdgesState(state, [...resultEdgesMap.values()]);
         }
 
         case "addFromSource": {
-            const resultEdges: EdgeData[] = []
-            args.entries.forEach(entry => {
-                const edge: EdgeData = {
+            const resultEdges = args.entries.map(entry => {
+                return {
                     sourceData: entry.edgeSourceData,
                     updatedData: undefined,
                     tech: {
@@ -203,17 +195,15 @@ function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs)
                         sourceOrCreated: "source"
                     },
                     currentData: calculateCurrentEdgeData(entry.edgeSourceData, undefined)
-                }
-                resultEdges.push(edge)
+                } as EdgeData
             })
 
             return SyncEdgesState(state, resultEdges);
         }
 
         case "create": {
-            const resultEdges: EdgeData[] = []
-            args.entries.forEach(entry => {
-                const edge: EdgeData = {
+            const resultEdges = args.entries.map(entry => {
+                return {
                     sourceData: entry.edgeSourceData,
                     updatedData: undefined,
                     tech: {
@@ -224,8 +214,7 @@ function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs)
                         sourceOrCreated: "created"
                     },
                     currentData: calculateCurrentEdgeData(entry.edgeSourceData)
-                }
-                resultEdges.push(edge)
+                } as EdgeData
             })
 
             return SyncEdgesState(state, resultEdges);
@@ -235,14 +224,14 @@ function edgesStateReducer(state: EdgesState, args: EdgesStateReducerActionArgs)
 
 export function EdgesStateWrapper(children: React.ReactNode) {
     const [edges, updateEdgesState] = useReducer(edgesStateReducer, {
-        all: immutableDictionary<EdgeDataIdType, EdgeData>({}),
-        updated: immutableDictionary<EdgeDataIdType, EdgeData>({}),
-        deleted: immutableDictionary<EdgeDataIdType, EdgeData>({}),
-        created: immutableDictionary<EdgeDataIdType, EdgeData>({})
+        all: immutableMapContainerNoCopy<EdgeDataIdType, EdgeData>(new Map()),
+        updated: immutableMapContainerNoCopy<EdgeDataIdType, EdgeData>(new Map()),
+        deleted: immutableMapContainerNoCopy<EdgeDataIdType, EdgeData>(new Map()),
+        created: immutableMapContainerNoCopy<EdgeDataIdType, EdgeData>(new Map())
     })
 
     const contextValue: EdgesStateContextType = useMemo(() => {
-        const result : EdgesStateContextType = ({
+        const result: EdgesStateContextType = ({
             allEdges: edges.all,
             updatedEdges: edges.updated,
             deletedEdges: edges.deleted,

@@ -1,14 +1,14 @@
 import {createContext, useContext} from "react";
 import type {EdgeData, EdgeDataIdType} from "../types/EdgeData.ts";
-import type {EdgesImmutableDictionary, EdgesState, EdgesStateReducerActionArgs} from "./EdgesStateWrapper.tsx";
+import type {EdgesImmutableMapContainer, EdgesState, EdgesStateReducerActionArgs} from "./EdgesStateWrapper.tsx";
 import type {NodeDataIdType} from "../types/NodeData.ts";
 import {immutableDictionary} from "../lib/ImmutableDictionary.ts";
 
 export type EdgesStateContextType = Readonly<{
-    allEdges:EdgesImmutableDictionary
-    updatedEdges: EdgesImmutableDictionary
-    deletedEdges: EdgesImmutableDictionary
-    createdEdges: EdgesImmutableDictionary
+    allEdges:EdgesImmutableMapContainer
+    updatedEdges: EdgesImmutableMapContainer
+    deletedEdges: EdgesImmutableMapContainer
+    createdEdges: EdgesImmutableMapContainer
     edgesState: EdgesState
     readonly updateEdgesState: React.ActionDispatch<[args: EdgesStateReducerActionArgs]>
     getEdgesByNode(nodeId: NodeDataIdType): EdgeData[],

@@ -9,12 +9,7 @@ export type EdgeSourceData = Readonly<{
     toId: NodeDataIdType;
 }>
 
-export type EdgeCurrentData = EdgeSourceData /*Readonly<{
-    id: EdgeDataIdType;
-    label: string;
-    fromId: NodeDataIdType;
-    toId: NodeDataIdType;
-}>*/
+export type EdgeCurrentData = EdgeSourceData
 
 export type EdgeTechData = Readonly<{
     isExplicitlyMarkedForDelete: boolean

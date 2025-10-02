@@ -7,20 +7,21 @@ import {
 } from "../types/NodeData.ts";
 import {NodesStateContext, type NodesStateContextType} from "./NodesStateContext.tsx";
 import {useEdgesStateContext} from "./EdgesStateContext.tsx";
-import type {ImmutableDictionary} from "../lib/ImmutableDictionary.ts";
+import {immutableMapContainerNoCopy, type ImmutableMapContainer} from "../lib/ImmutableDictionary.ts";
+import type {EdgeDataIdType} from "../types/EdgeData.ts";
 
-export type NodesImmutableDictionary = ImmutableDictionary<NodeDataIdType, NodeData>
+export type NodesImmutableMapContainer = ImmutableMapContainer<NodeDataIdType, NodeData>
 
 export type NodesState = Readonly<{
-    all: NodesImmutableDictionary
-    updated: NodesImmutableDictionary
-    deleted: NodesImmutableDictionary
-    created: NodesImmutableDictionary
+    all: NodesImmutableMapContainer
+    updated: NodesImmutableMapContainer
+    deleted: NodesImmutableMapContainer
+    created: NodesImmutableMapContainer
 }>
 
 export type NodesStateReducerActionArgs =
     | { type: "update"; entries: readonly { id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[] }
-    | { type: "markForDelete"; entries: readonly { id: NodeDataIdType; markForDelete: boolean;  }[] }
+    | { type: "markForDelete"; entries: readonly { id: NodeDataIdType; markForDelete: boolean;  }[]; markEdgeDeletedBecauseNode(nodeId: NodeDataIdType, markForDelete: boolean):void }
     | { type: "addFromSource"; entries: readonly { nodeSourceData: NodeSourceData }[] }
     | { type: "create"; entries: readonly { nodeSourceData: NodeSourceData }[] }
 
@@ -37,122 +38,122 @@ function SyncNodesState(initialState: NodesState, newNodeDatas: readonly NodeDat
     }
 }
 
-function SyncAllForNodes(initialAll: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]): Readonly<Record<NodeDataIdType, NodeData>> {
-    const resultAll = {...initialAll}
-
-    newNodeDatas.forEach(nd => {
-        resultAll[nd.sourceData.id] = nd
-    })
-
-    return resultAll
-}
-
-function SyncUpdatedForNodes(initialUpdated: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]) {
+function SyncAllForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]): NodesImmutableMapContainer {
     if (newNodeDatas.length < 1) {
-        return initialUpdated;
+        return initial;
     }
 
-    const resultUpdated = {...initialUpdated}
+    const map = new Map(initial.map.entries())
+
+    newNodeDatas.forEach(nd => {
+        map.set(nd.sourceData.id, nd)
+    })
+
+    return immutableMapContainerNoCopy(map)
+}
+
+function SyncUpdatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]) : NodesImmutableMapContainer {
+    if (newNodeDatas.length < 1) {
+        return initial;
+    }
+
+    const map = new Map(initial.map.entries())
 
     newNodeDatas.forEach(nd => {
         const key = nd.sourceData.id
 
         if (nd.tech.hasDataUpdates) {
-            resultUpdated[key] = nd
+            map.set(key, nd)
         } else {
-            if (key in resultUpdated) {
-                delete resultUpdated[key]
-            }
+            map.delete(key)
         }
     })
 
-    return resultUpdated
+    return immutableMapContainerNoCopy(map)
 }
 
-function SyncCreatedForNodes(initialCreated: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]) {
-    const resultCreated = {...initialCreated}
+function SyncCreatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]) : NodesImmutableMapContainer {
+    if (newNodeDatas.length < 1) {
+        return initial;
+    }
+
+    const map = new Map(initial.map.entries())
 
     newNodeDatas.forEach(nd => {
         if (nd.tech.sourceOrCreated !== "created")
             return;
-        resultCreated[nd.sourceData.id] = nd
+        map.set(nd.sourceData.id, nd)
     })
 
-    return resultCreated
+    return immutableMapContainerNoCopy(map)
 }
 
-function SyncDeletedForNodes(initialDeleted: NodesImmutableDictionary, newNodeDatas: readonly NodeData[]) {
+function SyncDeletedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]) : NodesImmutableMapContainer {
     if (newNodeDatas.length < 1) {
-        return initialDeleted;
+        return initial;
     }
 
-    const resultDeleted = {...initialDeleted}
+    const map = new Map(initial.map.entries())
 
     newNodeDatas.forEach((nd) => {
         const key = nd.sourceData.id
         if (nd.tech.isExplicitlyMarkedForDelete) {
-            resultDeleted[key] = nd
+            map.set(key, nd)
         } else {
-            if (key in resultDeleted) {
-                delete resultDeleted[key]
-            }
+            map.delete(key)
         }
     })
 
-    return resultDeleted
+    return immutableMapContainerNoCopy(map)
+}
+
+export class EdgeNotFoundError extends Error {
+    constructor() {
+        super("EdgeNotFound");
+    }
 }
 
 function nodesStateReducer(state: NodesState, args: NodesStateReducerActionArgs): NodesState {
     switch (args.type) {
         case "update": {
-            //const initialNodes: NodeData[] = []
-            const resultNodes: NodeData[] = []
-            args.entries.forEach(entry => {
-                const initialNode = state.all[entry.id];
-                if (!initialNode) return state;
+            const resultNodes = args.entries.map(entry => {
+                const initialNode = state.all.map.get(entry.id);
+                if (!initialNode) throw new EdgeNotFoundError();
 
                 const updatedData = {...initialNode.updatedData, ...entry.updatedData}
                 const currentData = calculateCurrentNodeData(initialNode.sourceData, updatedData)
                 const hasDataUpdates = calculateHasNodeDataUpdates(initialNode.sourceData, updatedData)
 
-                const resultNode = {
+                return  {
                     ...initialNode,
                     updatedData: updatedData,
                     currentData: currentData,
                     tech: {...initialNode.tech, hasDataUpdates: hasDataUpdates},
-                }
-
-                //initialNodes.push(initialNode)
-                resultNodes.push(resultNode)
+                } as NodeData
             })
 
             return SyncNodesState(state, resultNodes);
         }
 
         case "markForDelete": {
-            //const initialNodes: NodeData[] = []
-            const resultNodes: NodeData[] = []
+            const edgesToDeleteBecauseNodes : { edgeId: EdgeDataIdType, nodeId: NodeDataIdType; markForDelete: boolean }[] = []
 
-            args.entries.forEach(entry => {
-                const initialNode = state.all[entry.id];
-                if (!initialNode) return state;
-                const resultNode = {
+            const resultNodes = args.entries.map(entry => {
+                const initialNode = state.all.map.get(entry.id);
+                if (!initialNode) throw new EdgeNotFoundError();
+
+                return  {
                     ...initialNode,
                     tech: {...initialNode.tech, isExplicitlyMarkedForDelete: entry.markForDelete},
-                }
-                //initialNodes.push(initialNode)
-                resultNodes.push(resultNode)
+                } as NodeData
             })
 
-            const syncedNodesState = SyncNodesState(state, resultNodes)
-
-            return syncedNodesState
+            return  SyncNodesState(state, resultNodes)
         }
 
         case "addFromSource": {
-            const resultNodes: NodeData[] = []
-            args.entries.forEach(entry => {
-                const node: NodeData = {
+            const resultNodes = args.entries.map(entry => {
+                return {
                     sourceData: entry.nodeSourceData,
                     updatedData: undefined,
                     tech: {
@@ -161,17 +162,15 @@ function nodesStateReducer(state: NodesState, args: NodesStateReducerActionArgs)
                         sourceOrCreated: "source"
                     },
                     currentData: calculateCurrentNodeData(entry.nodeSourceData, undefined)
-                }
-                resultNodes.push(node)
+                } as NodeData
             })
 
             return SyncNodesState(state, resultNodes);
         }
 
         case "create": {
-            const resultNodes: NodeData[] = []
-            args.entries.forEach(entry => {
-                const node: NodeData = {
+            const resultNodes = args.entries.map(entry => {
+                return {
                     sourceData: entry.nodeSourceData,
                     updatedData: undefined,
                     tech: {
@@ -180,8 +179,7 @@ function nodesStateReducer(state: NodesState, args: NodesStateReducerActionArgs)
                         sourceOrCreated: "created"
                     },
                     currentData: calculateCurrentNodeData(entry.nodeSourceData)
-                }
-                resultNodes.push(node)
+                } as NodeData
             })
 
             return SyncNodesState(state, resultNodes);
@@ -193,10 +191,10 @@ export function NodesStateWrapper(children: React.ReactNode) {
     const [edges, updateEdgesState] = useEdgesStateContext()
 
     const [nodes, updateNodesState] = useReducer(nodesStateReducer, {
-        all: {},
-        updated: {},
-        deleted: {},
-        created: {}
+        all: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+        updated: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+        deleted: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+        created: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
     })
 
     const contextValue: NodesStateContextType = useMemo(() => ({
