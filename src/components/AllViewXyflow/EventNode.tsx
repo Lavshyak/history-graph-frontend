@@ -1,9 +1,7 @@
-import {Handle, type Node, type NodeProps, Position, useConnection, useReactFlow} from "@xyflow/react";
+import {Handle, type Node, type NodeProps, Position, useConnection} from "@xyflow/react";
 import {Button, Collapse, Flex} from "antd";
 import {type CSSProperties, useContext} from "react";
 import {EditableContext, MarkNodeForDeleteContext} from "./Contexts.ts";
-import type {XfNode} from "./XyFlowTypeAliases.ts";
-import type {FloatingEdgeType} from "./FloatingEdge.tsx";
 
 export type EventNodeData = {
     id: string,
@@ -51,7 +49,6 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
 
     const isEditable = useContext(EditableContext)
     const markNodeForDeleteContextValue = useContext(MarkNodeForDeleteContext)
-    const {updateNode} = useReactFlow<XfNode, FloatingEdgeType>()
 
     return (
         <div>
@@ -94,11 +91,9 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
                                     <Button disabled={!isEditable} onClick={() => {
                                         if(!data.isMarkedForDelete) {
                                             markNodeForDeleteContextValue.markNodeForDelete(data.id)
-                                            updateNode(data.id, {data: {...data, isMarkedForDelete: true}})
                                         }
                                         else{
                                             markNodeForDeleteContextValue.undoMarkNodeForDelete(data.id)
-                                            updateNode(data.id, {data: {...data, isMarkedForDelete: false}})
                                         }
                                     }}>
                                         {data.isMarkedForDelete ? "undo delete" : "delete"}

@@ -58,6 +58,9 @@ export function EdgesAndNodesStatesContextWrapper({children}: { children: ReactN
         },
         update(entries: DeepReadonly<{ id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[]>): void {
             nodesStateReducer({type: "update", entries: entries})
+        },
+        updatePosition(entries: DeepReadonly<{ id: NodeDataIdType; position: { x: number; y: number } }[]>): void {
+            nodesStateReducer({type: "updatePosition", entries: entries})
         }
     }), [edgesStateReducer, nodesState, nodesStateReducer])
 

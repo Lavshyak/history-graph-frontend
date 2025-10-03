@@ -7,7 +7,7 @@ export function immutableMapContainerNoCopy<TKey, TValue>(map : ReadonlyMap<TKey
     const values : TValue[] = [...map.values()]
 
     return {
-        map: {...map},
+        map: map,
         values: values
     }
 }

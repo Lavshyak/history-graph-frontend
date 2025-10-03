@@ -18,6 +18,7 @@ export type NodeTechData = DeepReadonly<{
     isExplicitlyMarkedForDelete: boolean
     hasDataUpdates: boolean
     sourceOrCreated: "source" | "created"
+    position?: { x: number; y: number }
 }>
 
 export type NodeUpdatedData = DeepReadonly<{
