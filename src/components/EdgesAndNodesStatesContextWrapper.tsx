@@ -5,9 +5,9 @@ import type {NodeDataIdType, NodeSourceData, NodeUpdatedData} from "../types/Nod
 import type {EdgeDataIdType, EdgeSourceData, EdgeUpdatedData} from "../types/EdgeData.ts";
 import type {DeepReadonly} from "../lib/DeepReadonly.ts";
 import {useNodesStateReducer} from "./NodesStateReducer.ts";
-import {EdgesStateContext, type EdgesStateContextType} from "./EdgesStateContext.tsx";
+import {EdgeDatasStateContext, type EdgesStateContextType} from "./EdgeDatasStateContext.tsx";
 import {useEdgesStateReducer} from "./EdgesStateReducer.ts";
-import {NodesStateContext, type NodesStateContextType} from "./NodesStateContext.tsx";
+import {NodeDatasStateContext, type NodesStateContextType} from "./NodeDatasStateContext.tsx";
 
 
 export function EdgesAndNodesStatesContextWrapper({children}: { children: ReactNode }) {
@@ -62,10 +62,10 @@ export function EdgesAndNodesStatesContextWrapper({children}: { children: ReactN
     }), [edgesStateReducer, nodesState, nodesStateReducer])
 
     return <>
-        <EdgesStateContext.Provider value={edgesStateContextValue}>
-            <NodesStateContext.Provider value={nodesStateContextValue}>
+        <EdgeDatasStateContext.Provider value={edgesStateContextValue}>
+            <NodeDatasStateContext.Provider value={nodesStateContextValue}>
                 {children}
-            </NodesStateContext.Provider>
-        </EdgesStateContext.Provider>
+            </NodeDatasStateContext.Provider>
+        </EdgeDatasStateContext.Provider>
     </>
 }

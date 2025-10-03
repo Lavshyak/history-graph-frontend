@@ -1,4 +1,4 @@
-import {createContext} from "react";
+import {createContext, useContext} from "react";
 import type {DeepReadonly} from "../lib/DeepReadonly.ts";
 import type {EdgeDataIdType, EdgeSourceData, EdgeUpdatedData} from "../types/EdgeData.ts";
 import {emptyImmutableMapContainer} from "../lib/ImmutableDictionary.ts";
@@ -15,7 +15,7 @@ export type EdgesStateContextType = Readonly<{
     remove(entries: DeepReadonly<{ id: EdgeDataIdType }[]>): void
 }>
 
-export const EdgesStateContext = createContext<EdgesStateContextType>({
+export const EdgeDatasStateContext = createContext<EdgesStateContextType>({
     addFromSource(entries: DeepReadonly<{ edgeSourceData: EdgeSourceData }[]>): void {
     },
     clear(): void {

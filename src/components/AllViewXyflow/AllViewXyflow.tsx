@@ -1,6 +1,5 @@
 import {useGetHistoryGetall} from "../../gen";
-import {useEffect, useMemo, useState} from "react";
-import {Background, Controls, MarkerType, ReactFlow, useEdgesState, useNodesState, useReactFlow} from "@xyflow/react";
+import {useContext, useEffect, useMemo, useState} from "react";
 import "@xyflow/react/dist/style.css";
 import {Button, Divider, Flex, Space, Switch} from "antd";
 import {EventNode, type EventNodeType} from "./EventNode.tsx";
@@ -8,8 +7,11 @@ import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import prettifyGraph2 from "./prettifyGraph2.ts";
 import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
 import CustomConnectionLine from "./CustomConnectionLine.tsx";
-import FloatingEdge, {FloatingEdgeData, type FloatingEdgeType} from "./FloatingEdge.tsx";
 import {EditableContext, MarkEdgeForDeleteContext, MarkNodeForDeleteContext} from "./Contexts.ts";
+import {type Edge, MarkerType, useEdgesState, useNodesState} from "@xyflow/react";
+import FloatingEdge from "./FloatingEdge.tsx";
+import {EdgeDatasStateContext} from "../EdgeDatasStateContext.tsx";
+import {NodeDatasStateContext} from "../NodeDatasStateContext.tsx";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -32,8 +34,31 @@ const defaultEdgeOptions = {
 };
 
 function AllViewXyflow() {
-    const [nodesState, setNodes, onNodesChange] = useNodesState<XfNode>([]);
-    const [edgesState, setEdges, onEdgesChange] = useEdgesState<XfEdge>([]);
+    const edgeDatasStateContext = useContext(EdgeDatasStateContext)
+    const nodeDatasStateContext = useContext(NodeDatasStateContext)
+
+    useEffect(()=>{
+        // здесь я типа с бэкенда загружаю информвцию об узлах и связях
+        nodeDatasStateContext.addFromSource([])
+        edgeDatasStateContext.addFromSource([])
+    },[])
+
+    // а дальше получается какая-то фигня
+    const [nodesState, setNodes, onNodesChange] = useNodesState<XfNode>(nodeDatasStateContext.nodesState.all.values.map(nodeData => {
+        return {
+            id: nodeData.sourceData.id,
+            data: nodeData,
+            position: {x: 0, y: 0},
+        }
+    }));
+    const [edgesState, setEdges, onEdgesChange] = useEdgesState<XfEdge>(edgeDatasStateContext.edgesState.all.values.map(edgeData => {
+        return {
+            id: edgeData.sourceData.id,
+            data: edgeData,
+            source: edgeData.sourceData.fromId,
+            target: edgeData.sourceData.toId,
+        }
+    }));
     const [isEditable, setIsEditable] = useState<boolean>(true);
 
     const [edgesMarkedForDelete, setEdgesMarkedForDelete] = useState<string[]>([]);
@@ -90,9 +115,9 @@ function AllViewXyflow() {
                         fromId: r.fromId,
                         toId: r.toId,
                     }, {
-                    labelUpdated(newValue: string): void {
-                    }
-                }, "source")
+                        labelUpdated(newValue: string): void {
+                        }
+                    }, "source")
 
                 /*const data = {
                     sourceData: {

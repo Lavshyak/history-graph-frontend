@@ -14,7 +14,7 @@ export type NodesStateContextType = Readonly<{
     remove(entries: DeepReadonly<{ nodeId: NodeDataIdType }[]>): void
 }>
 
-export const NodesStateContext = createContext<NodesStateContextType>({
+export const NodeDatasStateContext = createContext<NodesStateContextType>({
     addFromSource(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void {
     }, clear(): void {
     }, create(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void {
