@@ -1,40 +1,39 @@
-import {createContext, useContext} from "react";
-import type {EdgeData, EdgeDataIdType} from "../types/EdgeData.ts";
-import type {EdgesImmutableMapContainer, EdgesState, EdgesStateReducerActionArgs} from "./EdgesStateWrapper.tsx";
-import type {NodeDataIdType} from "../types/NodeData.ts";
-import {immutableDictionary} from "../lib/ImmutableDictionary.ts";
+import {createContext} from "react";
+import type {DeepReadonly} from "../lib/DeepReadonly.ts";
+import type {EdgeDataIdType, EdgeSourceData, EdgeUpdatedData} from "../types/EdgeData.ts";
+import {emptyImmutableMapContainer} from "../lib/ImmutableDictionary.ts";
+import type {EdgesState} from "./EdgesStateReducer.ts";
 
 export type EdgesStateContextType = Readonly<{
-    allEdges:EdgesImmutableMapContainer
-    updatedEdges: EdgesImmutableMapContainer
-    deletedEdges: EdgesImmutableMapContainer
-    createdEdges: EdgesImmutableMapContainer
     edgesState: EdgesState
-    readonly updateEdgesState: React.ActionDispatch<[args: EdgesStateReducerActionArgs]>
-    getEdgesByNode(nodeId: NodeDataIdType): EdgeData[],
+    //getEdgesByNodeId(nodeId: NodeDataIdType): EdgeData[]
+    update(entries: DeepReadonly<{ id: EdgeDataIdType; updatedData: Partial<EdgeUpdatedData> }[]>): void
+    markForDelete(entries: DeepReadonly<{ id: EdgeDataIdType; markForDelete: boolean; }[]>): void
+    addFromSource(entries: DeepReadonly<{ edgeSourceData: EdgeSourceData }[]>): void
+    create(entries: DeepReadonly<{ edgeSourceData: EdgeSourceData }[]>): void
+    clear(): void
+    remove(entries: DeepReadonly<{ id: EdgeDataIdType }[]>): void
 }>
 
-const defaultEdgesState = {
-    all: immutableDictionary<EdgeDataIdType, EdgeData>({}),
-    updated: immutableDictionary<EdgeDataIdType, EdgeData>({}),
-    deleted: immutableDictionary<EdgeDataIdType, EdgeData>({}),
-    created: immutableDictionary<EdgeDataIdType, EdgeData>({})
-}
-
 export const EdgesStateContext = createContext<EdgesStateContextType>({
-
-    allEdges: defaultEdgesState.all,
-    createdEdges: defaultEdgesState.created,
-    deletedEdges: defaultEdgesState.deleted,
-    edgesState: defaultEdgesState,
-    updatedEdges: defaultEdgesState.updated,
-    updateEdgesState() {
+    addFromSource(entries: DeepReadonly<{ edgeSourceData: EdgeSourceData }[]>): void {
     },
-    getEdgesByNode(): EdgeData[] {
-        return []
+    clear(): void {
+    },
+    create(entries: DeepReadonly<{ edgeSourceData: EdgeSourceData }[]>): void {
+    },
+    edgesState: {
+        all: emptyImmutableMapContainer(),
+        updated: emptyImmutableMapContainer(),
+        deleted: emptyImmutableMapContainer(),
+        created: emptyImmutableMapContainer(),
+        nodesIdsEdgesIds: emptyImmutableMapContainer()
+    },
+    markForDelete(entries: DeepReadonly<{ id: EdgeDataIdType; markForDelete: boolean }[]>): void {
+    },
+    remove(entries: DeepReadonly<{ id: EdgeDataIdType }[]>): void {
+    },
+    update(entries: DeepReadonly<{ id: EdgeDataIdType; updatedData: Partial<EdgeUpdatedData> }[]>): void {
     }
-})
 
-export function useEdgesStateContext() {
-    return useContext(EdgesStateContext)
-}
+})

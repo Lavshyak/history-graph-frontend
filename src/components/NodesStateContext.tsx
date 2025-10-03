@@ -1,34 +1,31 @@
-import {createContext, useContext} from "react";
-import type {NodeData, NodeDataIdType} from "../types/NodeData.ts";
-import type {NodesImmutableMapContainer, NodesState, NodesStateReducerActionArgs} from "./NodesStateWrapper.tsx";
-import {immutableMapContainerNoCopy} from "../lib/ImmutableDictionary.ts";
+import {createContext} from "react";
+import type {DeepReadonly} from "../lib/DeepReadonly.ts";
+import type {NodeDataIdType, NodeSourceData, NodeUpdatedData} from "../types/NodeData.ts";
+import {emptyImmutableMapContainer} from "../lib/ImmutableDictionary.ts";
+import type {NodesState} from "./NodesStateReducer.ts";
 
 export type NodesStateContextType = Readonly<{
-    allNodes: NodesImmutableMapContainer
-    updatedNodes: NodesImmutableMapContainer
-    deletedNodes: NodesImmutableMapContainer
-    createdNodes: NodesImmutableMapContainer
-    readonly updateNodesState: React.ActionDispatch<[args: NodesStateReducerActionArgs]>
     nodesState: NodesState
+    update(entries: DeepReadonly<{ id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[]>): void
+    markForDelete(entries: DeepReadonly<{ nodeId: NodeDataIdType; markForDelete: boolean; }[]>): void
+    addFromSource(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void
+    create(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void
+    clear(): void
+    remove(entries: DeepReadonly<{ nodeId: NodeDataIdType }[]>): void
 }>
 
-const defaultNodesState = {
-    all: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
-    updated: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
-    deleted: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
-    created: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
-}
-
 export const NodesStateContext = createContext<NodesStateContextType>({
-    allNodes: defaultNodesState.all,
-    createdNodes: defaultNodesState.created,
-    deletedNodes: defaultNodesState.deleted,
-    updatedNodes: defaultNodesState.updated,
-    updateNodesState() {
+    addFromSource(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void {
+    }, clear(): void {
+    }, create(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void {
+    }, markForDelete(entries: DeepReadonly<{ nodeId: NodeDataIdType; markForDelete: boolean }[]>): void {
+    }, nodesState: {
+        all: emptyImmutableMapContainer(),
+        updated: emptyImmutableMapContainer(),
+        deleted: emptyImmutableMapContainer(),
+        created: emptyImmutableMapContainer()
     },
-    nodesState: defaultNodesState,
+    remove(entries: DeepReadonly<{ nodeId: NodeDataIdType }[]>): void {
+    }, update(entries: DeepReadonly<{ id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[]>): void {
+    }
 })
-
-export function useNodesState() {
-    return useContext(NodesStateContext)
-}

@@ -1,14 +1,12 @@
-import {useMemo, useReducer} from "react";
+import {useReducer} from "react";
 import {
     type NodeDataIdType,
     type NodeData,
     calculateCurrentNodeData,
     type NodeSourceData, type NodeUpdatedData, calculateHasNodeDataUpdates,
 } from "../types/NodeData.ts";
-import {NodesStateContext, type NodesStateContextType} from "./NodesStateContext.tsx";
-import {useEdgesStateContext} from "./EdgesStateContext.tsx";
 import {immutableMapContainerNoCopy, type ImmutableMapContainer} from "../lib/ImmutableDictionary.ts";
-import type {EdgeDataIdType} from "../types/EdgeData.ts";
+import type {DeepReadonly} from "../lib/DeepReadonly.ts";
 
 export type NodesImmutableMapContainer = ImmutableMapContainer<NodeDataIdType, NodeData>
 
@@ -19,13 +17,22 @@ export type NodesState = Readonly<{
     created: NodesImmutableMapContainer
 }>
 
+// doesn't affect edges state
 export type NodesStateReducerActionArgs =
-    | { type: "update"; entries: readonly { id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[] }
-    | { type: "markForDelete"; entries: readonly { id: NodeDataIdType; markForDelete: boolean;  }[]; markEdgeDeletedBecauseNode(nodeId: NodeDataIdType, markForDelete: boolean):void }
-    | { type: "addFromSource"; entries: readonly { nodeSourceData: NodeSourceData }[] }
-    | { type: "create"; entries: readonly { nodeSourceData: NodeSourceData }[] }
+    | DeepReadonly<{
+    type: "update";
+    entries: { id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[]
+}>
+    | DeepReadonly<{
+    type: "markForDelete";
+    entries: { nodeId: NodeDataIdType; markForDelete: boolean; }[];
+}>
+    | DeepReadonly<{ type: "addFromSource"; entries: { nodeSourceData: NodeSourceData }[] }>
+    | DeepReadonly<{ type: "create"; entries: { nodeSourceData: NodeSourceData }[] }>
+    | DeepReadonly<{ type: "remove"; entries: { nodeId: NodeDataIdType }[] }>
+    | DeepReadonly<{ type: "clear" }>
 
-function SyncNodesState(initialState: NodesState, newNodeDatas: readonly NodeData[]): NodesState {
+function SyncNodesState(initialState: NodesState, newNodeDatas: NodeData[]): NodesState {
     if (newNodeDatas.length < 1) {
         return initialState
     }
@@ -52,7 +59,7 @@ function SyncAllForNodes(initial: NodesImmutableMapContainer, newNodeDatas: read
     return immutableMapContainerNoCopy(map)
 }
 
-function SyncUpdatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]) : NodesImmutableMapContainer {
+function SyncUpdatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]): NodesImmutableMapContainer {
     if (newNodeDatas.length < 1) {
         return initial;
     }
@@ -72,7 +79,7 @@ function SyncUpdatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: 
     return immutableMapContainerNoCopy(map)
 }
 
-function SyncCreatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]) : NodesImmutableMapContainer {
+function SyncCreatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]): NodesImmutableMapContainer {
     if (newNodeDatas.length < 1) {
         return initial;
     }
@@ -88,7 +95,7 @@ function SyncCreatedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: 
     return immutableMapContainerNoCopy(map)
 }
 
-function SyncDeletedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]) : NodesImmutableMapContainer {
+function SyncDeletedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: readonly NodeData[]): NodesImmutableMapContainer {
     if (newNodeDatas.length < 1) {
         return initial;
     }
@@ -107,9 +114,9 @@ function SyncDeletedForNodes(initial: NodesImmutableMapContainer, newNodeDatas: 
     return immutableMapContainerNoCopy(map)
 }
 
-export class EdgeNotFoundError extends Error {
+export class NodeNotFoundError extends Error {
     constructor() {
-        super("EdgeNotFound");
+        super("NodeNotFound");
     }
 }
 
@@ -118,13 +125,13 @@ function nodesStateReducer(state: NodesState, args: NodesStateReducerActionArgs)
         case "update": {
             const resultNodes = args.entries.map(entry => {
                 const initialNode = state.all.map.get(entry.id);
-                if (!initialNode) throw new EdgeNotFoundError();
+                if (!initialNode) throw new NodeNotFoundError();
 
                 const updatedData = {...initialNode.updatedData, ...entry.updatedData}
                 const currentData = calculateCurrentNodeData(initialNode.sourceData, updatedData)
                 const hasDataUpdates = calculateHasNodeDataUpdates(initialNode.sourceData, updatedData)
 
-                return  {
+                return {
                     ...initialNode,
                     updatedData: updatedData,
                     currentData: currentData,
@@ -136,19 +143,17 @@ function nodesStateReducer(state: NodesState, args: NodesStateReducerActionArgs)
         }
 
         case "markForDelete": {
-            const edgesToDeleteBecauseNodes : { edgeId: EdgeDataIdType, nodeId: NodeDataIdType; markForDelete: boolean }[] = []
-
             const resultNodes = args.entries.map(entry => {
-                const initialNode = state.all.map.get(entry.id);
-                if (!initialNode) throw new EdgeNotFoundError();
+                const initialNode = state.all.map.get(entry.nodeId);
+                if (!initialNode) throw new NodeNotFoundError();
 
-                return  {
+                return {
                     ...initialNode,
                     tech: {...initialNode.tech, isExplicitlyMarkedForDelete: entry.markForDelete},
                 } as NodeData
             })
 
-            return  SyncNodesState(state, resultNodes)
+            return SyncNodesState(state, resultNodes)
         }
 
         case "addFromSource": {
@@ -184,9 +189,53 @@ function nodesStateReducer(state: NodesState, args: NodesStateReducerActionArgs)
 
             return SyncNodesState(state, resultNodes);
         }
+
+        case "clear": {
+            return {
+                all: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+                updated: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+                deleted: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+                created: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+            }
+        }
+
+        case "remove": {
+            const newAllMap = new Map(state.all.map.entries())
+            const newUpdatedMap = new Map(state.updated.map.entries())
+            const newDeletedMap = new Map(state.deleted.map.entries())
+            const newCreatedMap = new Map(state.created.map.entries())
+
+            args.entries.forEach(entry => {
+                const id = entry.nodeId
+
+                newAllMap.delete(id)
+                newUpdatedMap.delete(id)
+                newDeletedMap.delete(id)
+                newCreatedMap.delete(id)
+            })
+
+            return {
+                all: immutableMapContainerNoCopy(newAllMap),
+                updated: immutableMapContainerNoCopy(newUpdatedMap),
+                deleted: immutableMapContainerNoCopy(newDeletedMap),
+                created: immutableMapContainerNoCopy(newCreatedMap),
+            }
+        }
+
     }
 }
 
+// doesn't affect edges state
+export function useNodesStateReducer() {
+    return useReducer(nodesStateReducer, {
+        all: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+        updated: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+        deleted: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+        created: immutableMapContainerNoCopy<NodeDataIdType, NodeData>(new Map()),
+    })
+}
+
+/*
 export function NodesStateWrapper(children: React.ReactNode) {
     const [edges, updateEdgesState] = useEdgesStateContext()
 
@@ -211,4 +260,4 @@ export function NodesStateWrapper(children: React.ReactNode) {
             {children}
         </NodesStateContext.Provider>
     </>
-}
+}*/

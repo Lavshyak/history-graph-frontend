@@ -11,3 +11,10 @@ export function immutableMapContainerNoCopy<TKey, TValue>(map : ReadonlyMap<TKey
         values: values
     }
 }
+
+export function emptyImmutableMapContainer<TKey, TValue>() : ImmutableMapContainer<TKey, TValue> {
+    return {
+        map: new Map<TKey, TValue>(),
+        values: []
+    }
+}

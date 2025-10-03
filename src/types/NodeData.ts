@@ -1,6 +1,8 @@
+import type {DeepReadonly} from "../lib/DeepReadonly.ts";
+
 export type NodeDataIdType = string
 
-export type NodeSourceData = Readonly<{
+export type NodeSourceData = DeepReadonly<{
     id: NodeDataIdType
     label: string
     timeFrom: Date
@@ -12,13 +14,13 @@ export type NodeSourceData = Readonly<{
 
 export type NodeCurrentData = NodeSourceData
 
-export type NodeTechData = Readonly<{
+export type NodeTechData = DeepReadonly<{
     isExplicitlyMarkedForDelete: boolean
     hasDataUpdates: boolean
     sourceOrCreated: "source" | "created"
 }>
 
-export type NodeUpdatedData = Readonly<{
+export type NodeUpdatedData = DeepReadonly<{
     timeFrom?: Date
     timeTo?: Date
     keywords?: readonly string[]
@@ -26,7 +28,7 @@ export type NodeUpdatedData = Readonly<{
     description?: string
 }>
 
-export type NodeData = Readonly<{
+export type NodeData = DeepReadonly<{
     sourceData: NodeSourceData
     updatedData?: NodeUpdatedData
     currentData: NodeCurrentData
