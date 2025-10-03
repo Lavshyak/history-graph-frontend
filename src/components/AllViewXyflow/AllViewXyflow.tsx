@@ -47,11 +47,13 @@ function AllViewXyflow() {
     const markEdgeForDeleteContextValue = useMemo(() => ({
         markEdgeForDelete: (edgeId: string) => {
             setEdgesMarkedForDelete(prev => [...prev, edgeId]);
+            edgeDatasStateContext.markForDelete([{id: edgeId, markForDelete: true}]);
         },
         undoMarkEdgeForDelete: (edgeId: string) => {
             setEdgesMarkedForDelete(prev => prev.filter(id => id !== edgeId));
+            edgeDatasStateContext.markForDelete([{id: edgeId, markForDelete: false}]);
         }
-    }), []);
+    }), [edgeDatasStateContext]);
 
     const markNodeForDeleteContextValue = useMemo(() => ({
         markNodeForDelete: (nodeId: string) => {
@@ -97,8 +99,10 @@ function AllViewXyflow() {
     }, [rawData]);
 
     // Convert context data to XyFlow nodes
-    const xyFlowNodes = useMemo<XfNode[]>(() => {
-        return nodeDatasStateContext.nodesState.all.values.map(nodeData => ({
+    const [xyFlowNodes, setXyFlowNodes] = useState<XfNode[]>([]);
+    
+    useEffect(() => {
+        const nodes = nodeDatasStateContext.nodesState.all.values.map(nodeData => ({
             id: nodeData.sourceData.id,
             data: {
                 id: nodeData.currentData.id,
@@ -113,6 +117,7 @@ function AllViewXyflow() {
             position: nodeData.tech.position ?? {x: 0, y: 0},
             type: "EventNode"
         }));
+        setXyFlowNodes(nodes);
     }, [nodeDatasStateContext.nodesState.all]);
 
     // Convert context data to XyFlow edges
@@ -148,9 +153,12 @@ function AllViewXyflow() {
 
     // Handle node changes from XyFlow (dragging, selection, etc.)
     const onNodesChange = useCallback((changes: NodeChange[]) => {
+        // Apply changes to local state immediately for smooth UI
+        setXyFlowNodes((nodes) => applyNodeChanges(changes, nodes));
+        
+        // Sync final position to context when drag ends
         changes.forEach(change => {
             if (change.type === 'position' && change.position && !change.dragging) {
-                // Update position in context when drag ends
                 nodeDatasStateContext.updatePosition([{
                     id: change.id,
                     position: change.position
