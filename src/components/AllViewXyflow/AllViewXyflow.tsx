@@ -1,15 +1,19 @@
 import {useGetHistoryGetall} from "../../gen";
-import {useEffect, useMemo, useState} from "react";
-import {Background, Controls, MarkerType, ReactFlow, useEdgesState, useNodesState, useReactFlow} from "@xyflow/react";
+import {useCallback, useContext, useEffect, useMemo, useState} from "react";
 import "@xyflow/react/dist/style.css";
 import {Button, Divider, Flex, Space, Switch} from "antd";
-import {EventNode, type EventNodeType} from "./EventNode.tsx";
+import {EventNode} from "./EventNode.tsx";
 import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import prettifyGraph2 from "./prettifyGraph2.ts";
 import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
 import CustomConnectionLine from "./CustomConnectionLine.tsx";
-import FloatingEdge, {FloatingEdgeData, type FloatingEdgeType} from "./FloatingEdge.tsx";
 import {EditableContext, MarkEdgeForDeleteContext, MarkNodeForDeleteContext} from "./Contexts.ts";
+import {MarkerType, type NodeChange, type EdgeChange, ReactFlow, Controls, Background, applyNodeChanges, applyEdgeChanges} from "@xyflow/react";
+import FloatingEdge from "./FloatingEdge.tsx";
+import {EdgeDatasStateContext} from "../EdgeDatasStateContext.tsx";
+import {NodeDatasStateContext} from "../NodeDatasStateContext.tsx";
+import type {NodeSourceData} from "../../types/NodeData.ts";
+import type {EdgeSourceData} from "../../types/EdgeData.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -32,110 +36,146 @@ const defaultEdgeOptions = {
 };
 
 function AllViewXyflow() {
-    const [nodesState, setNodes, onNodesChange] = useNodesState<XfNode>([]);
-    const [edgesState, setEdges, onEdgesChange] = useEdgesState<XfEdge>([]);
-    const [isEditable, setIsEditable] = useState<boolean>(true);
+    const edgeDatasStateContext = useContext(EdgeDatasStateContext);
+    const nodeDatasStateContext = useContext(NodeDatasStateContext);
 
+    const [isEditable, setIsEditable] = useState<boolean>(true);
     const [edgesMarkedForDelete, setEdgesMarkedForDelete] = useState<string[]>([]);
     const [nodesMarkedForDelete, setNodesMarkedForDelete] = useState<string[]>([]);
     const isHasChanges = edgesMarkedForDelete.length > 0 || nodesMarkedForDelete.length > 0;
 
-    const [markEdgeForDeleteContextValue] = useState({
+    const markEdgeForDeleteContextValue = useMemo(() => ({
         markEdgeForDelete: (edgeId: string) => {
-            setEdgesMarkedForDelete([...edgesMarkedForDelete, edgeId])
+            setEdgesMarkedForDelete(prev => [...prev, edgeId]);
+            edgeDatasStateContext.markForDelete([{id: edgeId, markForDelete: true}]);
         },
         undoMarkEdgeForDelete: (edgeId: string) => {
-            setEdgesMarkedForDelete(edgesMarkedForDelete.filter(id => id != edgeId))
+            setEdgesMarkedForDelete(prev => prev.filter(id => id !== edgeId));
+            edgeDatasStateContext.markForDelete([{id: edgeId, markForDelete: false}]);
         }
-    })
+    }), [edgeDatasStateContext]);
 
-    const [markNodeForDeleteContextValue] = useState({
+    const markNodeForDeleteContextValue = useMemo(() => ({
         markNodeForDelete: (nodeId: string) => {
-            setNodesMarkedForDelete([...nodesMarkedForDelete, nodeId])
+            setNodesMarkedForDelete(prev => [...prev, nodeId]);
+            nodeDatasStateContext.markForDelete([{nodeId, markForDelete: true}]);
         },
         undoMarkNodeForDelete: (nodeId: string) => {
-            setNodesMarkedForDelete(nodesMarkedForDelete.filter(id => id != nodeId))
+            setNodesMarkedForDelete(prev => prev.filter(id => id !== nodeId));
+            nodeDatasStateContext.markForDelete([{nodeId, markForDelete: false}]);
         }
-    })
+    }), [nodeDatasStateContext]);
 
-    console.log("before getAllQuery")
+    console.log("before getAllQuery");
     const getAllQuery = useGetHistoryGetall();
-    const rawData = useMemo(() => getAllQuery.data?.data ?? devDtoEventsAndRelationshipsMock, [getAllQuery.data])
+    const rawData = useMemo(() => getAllQuery.data?.data ?? devDtoEventsAndRelationshipsMock, [getAllQuery.data]);
     console.log("rawData:", rawData);
 
-    useEffect(
-        () => {
-            const nodes = rawData.events.map<EventNodeType>((n) => ({
-                id: n.id.toString(),
-                data: {
-                    id: n.id,
-                    timeFrom: n.timeFrom,
-                    timeTo: n.timeTo,
-                    keywords: n.keywords,
-                    title: n.title,
-                    description: n.description,
-                    label: "надо бы его с бэкенда возвращать",
-                    isMarkedForDelete: false
-                },
-                position: {x: 0, y: 0},
-                type: "EventNode"
+    // Load data from backend into contexts
+    useEffect(() => {
+        if (!rawData.events.length) return;
+
+        const nodeSourceData: NodeSourceData[] = rawData.events.map(n => ({
+            id: n.id.toString(),
+            label: "надо бы его с бэкенда возвращать",
+            timeFrom: n.timeFrom,
+            timeTo: n.timeTo,
+            keywords: n.keywords,
+            title: n.title,
+            description: n.description,
+        }));
+
+        const edgeSourceData: EdgeSourceData[] = rawData.relationships.map(r => ({
+            id: r.id.toString(),
+            label: r.label,
+            fromId: r.fromId.toString(),
+            toId: r.toId.toString(),
+        }));
+
+        nodeDatasStateContext.clear();
+        nodeDatasStateContext.addFromSource(nodeSourceData.map(nsd => ({nodeSourceData: nsd})));
+        edgeDatasStateContext.addFromSource(edgeSourceData.map(esd => ({edgeSourceData: esd})));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rawData]);
+
+    // Convert context data to XyFlow nodes
+    const [xyFlowNodes, setXyFlowNodes] = useState<XfNode[]>([]);
+    
+    useEffect(() => {
+        const nodes = nodeDatasStateContext.nodesState.all.values.map(nodeData => ({
+            id: nodeData.sourceData.id,
+            data: {
+                id: nodeData.currentData.id,
+                timeFrom: nodeData.currentData.timeFrom,
+                timeTo: nodeData.currentData.timeTo,
+                title: nodeData.currentData.title,
+                description: nodeData.currentData.description,
+                label: nodeData.currentData.label,
+                keywords: [...nodeData.currentData.keywords],
+                isMarkedForDelete: nodeData.tech.isExplicitlyMarkedForDelete,
+            },
+            position: nodeData.tech.position ?? {x: 0, y: 0},
+            type: "EventNode"
+        }));
+        setXyFlowNodes(nodes);
+    }, [nodeDatasStateContext.nodesState.all]);
+
+    // Convert context data to XyFlow edges
+    const xyFlowEdges = useMemo<XfEdge[]>(() => {
+        return edgeDatasStateContext.edgesState.all.values.map(edgeData => ({
+            id: edgeData.sourceData.id,
+            data: edgeData,
+            source: edgeData.sourceData.fromId,
+            target: edgeData.sourceData.toId,
+            type: "FloatingEdge",
+        }));
+    }, [edgeDatasStateContext.edgesState.all]);
+
+    // Prettify graph on initial load
+    useEffect(() => {
+        if (xyFlowNodes.length === 0) return;
+        
+        // Check if positions are already set
+        const hasPositions = xyFlowNodes.some(n => n.position.x !== 0 || n.position.y !== 0);
+        if (hasPositions) return;
+
+        // Calculate positions
+        prettifyGraph2(xyFlowNodes, xyFlowEdges, 250, 700).then(() => {
+            // Update positions in context
+            const positionUpdates = xyFlowNodes.map(node => ({
+                id: node.id,
+                position: node.position
             }));
+            nodeDatasStateContext.updatePosition(positionUpdates);
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [xyFlowNodes.length]); // Only run when node count changes
 
-            const edges = rawData.relationships.map<FloatingEdgeType>((r) => {
+    // Handle node changes from XyFlow (dragging, selection, etc.)
+    const onNodesChange = useCallback((changes: NodeChange[]) => {
+        // Apply changes to local state immediately for smooth UI
+        setXyFlowNodes((nodes) => applyNodeChanges(changes, nodes));
+        
+        // Sync final position to context when drag ends
+        changes.forEach(change => {
+            if (change.type === 'position' && change.position && !change.dragging) {
+                nodeDatasStateContext.updatePosition([{
+                    id: change.id,
+                    position: change.position
+                }]);
+            }
+        });
+    }, [nodeDatasStateContext]);
 
-                const data = new FloatingEdgeData(
-                    {
-                        id: r.id,
-                        label: r.label,
-                        fromId: r.fromId,
-                        toId: r.toId,
-                    }, {
-                    labelUpdated(newValue: string): void {
-                    }
-                }, "source")
+    // Handle edge changes from XyFlow
+    const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+        // Handle edge changes if needed
+        console.log("Edge changes:", changes);
+    }, []);
 
-                /*const data = {
-                    sourceData: {
-                        id: r.id,
-                        label: r.label,
-                        fromId: r.fromId,
-                        toId: r.toId,
-                    },
-                    updatedData: {
-                        label: undefined
-                    },
-                    isMarkedAsDelete: false,
-                    currentData: null
-                }
+    console.log("xyFlowNodes:", xyFlowNodes);
+    console.log("xyFlowEdges:", xyFlowEdges);
 
-                data.currentData = {
-                    get id() {
-                        return data.sourceData.id
-                    },
-                    get label() {
-                        return data.updatedData.label != undefined ? data.updatedData.label : data.sourceData.label
-                    }
-                }*/
-
-                return {
-                    id: r.id.toString(),
-                    source: r.fromId.toString(),
-                    target: r.toId.toString(),
-                    label: r.label,
-                    type: "FloatingEdge",
-                    data: data
-                }
-            });
-
-            prettifyGraph2(nodes, edges, 250, 700).then(() => {
-                setNodes(nodes)
-                setEdges(edges)
-            })
-        },
-        [rawData, setNodes, setEdges])
-
-    console.log("nodesState:", nodesState);
-    console.log("edgesState:", edgesState);
     return (
         <div>
             <Flex vertical>
@@ -145,8 +185,8 @@ function AllViewXyflow() {
                             <MarkEdgeForDeleteContext value={markEdgeForDeleteContextValue}>
                                 <MarkNodeForDeleteContext value={markNodeForDeleteContextValue}>
                                     <ReactFlow
-                                        nodes={nodesState}
-                                        edges={edgesState}
+                                        nodes={xyFlowNodes}
+                                        edges={xyFlowEdges}
                                         onNodesChange={onNodesChange}
                                         onEdgesChange={onEdgesChange}
                                         fitView
@@ -174,7 +214,7 @@ function AllViewXyflow() {
                 }}>
                     <Space size={50}>
                         <div>editable: <Switch onChange={(checked) => {
-                            setIsEditable(checked)
+                            setIsEditable(checked);
                         }} checked={isEditable}/></div>
                         <Button disabled={!isHasChanges || !isEditable}>push changes</Button>
                     </Space>

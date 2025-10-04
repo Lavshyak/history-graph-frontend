@@ -7,6 +7,7 @@ import type {NodesState} from "./NodesStateReducer.ts";
 export type NodesStateContextType = Readonly<{
     nodesState: NodesState
     update(entries: DeepReadonly<{ id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[]>): void
+    updatePosition(entries: DeepReadonly<{ id: NodeDataIdType; position: { x: number; y: number } }[]>): void
     markForDelete(entries: DeepReadonly<{ nodeId: NodeDataIdType; markForDelete: boolean; }[]>): void
     addFromSource(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void
     create(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void
@@ -14,7 +15,7 @@ export type NodesStateContextType = Readonly<{
     remove(entries: DeepReadonly<{ nodeId: NodeDataIdType }[]>): void
 }>
 
-export const NodesStateContext = createContext<NodesStateContextType>({
+export const NodeDatasStateContext = createContext<NodesStateContextType>({
     addFromSource(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void {
     }, clear(): void {
     }, create(entries: DeepReadonly<{ nodeSourceData: NodeSourceData }[]>): void {
@@ -27,5 +28,6 @@ export const NodesStateContext = createContext<NodesStateContextType>({
     },
     remove(entries: DeepReadonly<{ nodeId: NodeDataIdType }[]>): void {
     }, update(entries: DeepReadonly<{ id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[]>): void {
+    }, updatePosition(entries: DeepReadonly<{ id: NodeDataIdType; position: { x: number; y: number } }[]>): void {
     }
 })

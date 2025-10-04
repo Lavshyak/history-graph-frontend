@@ -24,6 +24,10 @@ export type NodesStateReducerActionArgs =
     entries: { id: NodeDataIdType; updatedData: Partial<NodeUpdatedData> }[]
 }>
     | DeepReadonly<{
+    type: "updatePosition";
+    entries: { id: NodeDataIdType; position: { x: number; y: number } }[]
+}>
+    | DeepReadonly<{
     type: "markForDelete";
     entries: { nodeId: NodeDataIdType; markForDelete: boolean; }[];
 }>
@@ -136,6 +140,20 @@ function nodesStateReducer(state: NodesState, args: NodesStateReducerActionArgs)
                     updatedData: updatedData,
                     currentData: currentData,
                     tech: {...initialNode.tech, hasDataUpdates: hasDataUpdates},
+                } as NodeData
+            })
+
+            return SyncNodesState(state, resultNodes);
+        }
+
+        case "updatePosition": {
+            const resultNodes = args.entries.map(entry => {
+                const initialNode = state.all.map.get(entry.id);
+                if (!initialNode) throw new NodeNotFoundError();
+
+                return {
+                    ...initialNode,
+                    tech: {...initialNode.tech, position: entry.position},
                 } as NodeData
             })
 

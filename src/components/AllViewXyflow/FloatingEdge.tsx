@@ -11,12 +11,12 @@ import {getSpecialPath} from "./GetSpecialPath.ts";
 import {useContext, useMemo} from "react";
 import type {XfNode} from "./XyFlowTypeAliases.ts";
 import {EditableContext, MarkEdgeForDeleteContext} from "./Contexts.ts";
-import {type ImmutableEdgeData} from "../../types/EdgeData.ts";
+import {type EdgeData} from "../../types/EdgeData.ts";
 
 
-export type FloatingEdgeDataType = {} & Record<string, unknown> & ImmutableEdgeData
+export type FloatingEdgeDataType = {} & Record<string, unknown> & EdgeData
 
-export type FloatingEdgeType = Edge<ImmutableEdgeData>
+export type FloatingEdgeType = Edge<EdgeData>
 
 function FloatingEdge({
                           id,
@@ -76,7 +76,7 @@ function FloatingEdge({
                 className="react-flow__edge-path"
                 path={path}
                 markerEnd={markerEnd}
-                style={style}
+                style={{...style, stroke: data.tech.isGenerallyMarkedForDelete ? "#ff000044" : "#b1b1b7"}}
             />
             <EdgeLabelRenderer>
                 <div
@@ -94,10 +94,10 @@ function FloatingEdge({
                     }}>
                         <div style={{
                             position: "absolute",
-                            backgroundColor: data.tech.isMarkedForDelete ? "red" : "white",
+                            backgroundColor: data.tech.isGenerallyMarkedForDelete ? "red" : "white",
                             width: "100%",
                             height: "100%",
-                            opacity: data.tech.isMarkedForDelete ? "0.1" : "0.5",
+                            opacity: data.tech.isGenerallyMarkedForDelete ? "0.1" : "0.5",
                             zIndex: -1,
                             borderRadius: 10
                         }}/>
@@ -114,15 +114,13 @@ function FloatingEdge({
                                         background: "transparent"
                                     }}>
                                         <Button disabled={!isEditable} onClick={() => {
-                                            if (!data?.tech.isMarkedForDelete) {
+                                            if (!data.tech.isExplicitlyMarkedForDelete) {
                                                 markEdgeForDeleteContextValue.markEdgeForDelete(currentData.id)
-                                                updateEdge(currentData.id, {data: {...data, isMarkedAsDelete: true}})
                                             } else {
                                                 markEdgeForDeleteContextValue.undoMarkEdgeForDelete(currentData.id)
-                                                updateEdge(currentData.id, {data: {...data, isMarkedAsDelete: false}})
                                             }
                                         }}>
-                                            {data.isMarkedForDelete ? "undo delete" : "delete"}
+                                            {data.tech.isExplicitlyMarkedForDelete ? "undo delete" : "delete"}
                                         </Button>
                                     </Flex>
                                 )
