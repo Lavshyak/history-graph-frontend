@@ -1,4 +1,6 @@
 import type {NodeDataIdType} from "./NodeData.ts";
+import type {DeepReadonly} from "../lib/DeepReadonly.ts";
+import {random} from "lodash";
 
 export type EdgeDataIdType = string
 
@@ -26,10 +28,15 @@ export type EdgeUpdatedData = Readonly<{
 
 export type EdgeData = Readonly<{
     sourceData: EdgeSourceData
-    updatedData?: EdgeUpdatedData
-    currentData: EdgeCurrentData
+    updatedData?: DeepReadonly<EdgeUpdatedData>
+    currentData: DeepReadonly<EdgeCurrentData>
     tech: EdgeTechData
 }>
+
+export function generateStateVersion()
+{
+    return random()
+}
 
 export function calculateCurrentEdgeData(edgeSourceData: EdgeSourceData, edgeUpdatedData?: EdgeUpdatedData) {
     return {

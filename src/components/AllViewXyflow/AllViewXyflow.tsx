@@ -8,7 +8,7 @@ import prettifyGraph2 from "./prettifyGraph2.ts";
 import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
 import CustomConnectionLine from "./CustomConnectionLine.tsx";
 import {EditableContext, MarkEdgeForDeleteContext, MarkNodeForDeleteContext} from "./Contexts.ts";
-import {MarkerType, type NodeChange, type EdgeChange, ReactFlow, Controls, Background, applyNodeChanges, applyEdgeChanges} from "@xyflow/react";
+import {MarkerType, type NodeChange, type EdgeChange, ReactFlow, Controls, Background, applyNodeChanges} from "@xyflow/react";
 import FloatingEdge from "./FloatingEdge.tsx";
 import {EdgeDatasStateContext} from "../EdgeDatasStateContext.tsx";
 import {NodeDatasStateContext} from "../NodeDatasStateContext.tsx";

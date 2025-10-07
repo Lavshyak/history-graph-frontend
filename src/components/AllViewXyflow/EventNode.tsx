@@ -1,6 +1,6 @@
 import {Handle, type Node, type NodeProps, Position, useConnection} from "@xyflow/react";
 import {Button, Collapse, Flex} from "antd";
-import {type CSSProperties, useContext} from "react";
+import {type CSSProperties, useContext, useRef, useState} from "react";
 import {EditableContext, MarkNodeForDeleteContext} from "./Contexts.ts";
 
 export type EventNodeData = {
@@ -50,6 +50,9 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
     const isEditable = useContext(EditableContext)
     const markNodeForDeleteContextValue = useContext(MarkNodeForDeleteContext)
 
+    const renderCount = useRef(0);
+    renderCount.current++;
+
     return (
         <div>
             {/* We want to disable the target handle, if the connection was started from this node */}
@@ -63,6 +66,7 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
                 alignItems: "center",
                 justifyContent: "center"
             }}>
+                {renderCount.current}
                 <div style={{
                     position: "absolute",
                     backgroundColor: data.isMarkedForDelete ? "red" : "white",
