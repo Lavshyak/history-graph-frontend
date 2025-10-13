@@ -1,16 +1,12 @@
-import {type XYPosition} from "@xyflow/react";
 import ElkConstructor from "elkjs";
 
-// ai slop
-export default async function prettifyGraph2<TNode, TEdge>(
-    nodes: ({
-        id: string,
-        position: XYPosition
-    } & TNode)[],
+export async function prettifyGraph3(
+    nodeIds: string[],
     edges: ({
+        id: string
         source: string,
         target: string,
-    } & TEdge)[],
+    })[],
     nodeWidth: number = 240,
     nodeHeight: number = 100
 ) {
@@ -21,13 +17,13 @@ export default async function prettifyGraph2<TNode, TEdge>(
         layoutOptions: {
             "elk.algorithm": "layered", // можно заменить на "force" или "stress"
         },
-        children: nodes.map((n) => ({
-            id: n.id,
+        children: nodeIds.map((nodeId) => ({
+            id: nodeId,
             width: nodeWidth,
             height: nodeHeight,
         })),
         edges: edges.map((e) => ({
-            id: `${e.source}->${e.target}`,
+            id: e.id,
             sources: [e.source],
             targets: [e.target],
         })),
@@ -35,12 +31,15 @@ export default async function prettifyGraph2<TNode, TEdge>(
 
     const layout = await elk.layout(graph);
 
-    nodes.forEach(n => {
-        const layoutNode = layout.children?.find((c) => c.id === n.id);
-        n.position = {
+    return nodeIds.map(nodeId => {
+        const layoutNode = layout.children?.find((c) => c.id === nodeId);
+        const position = {
             x: layoutNode?.x ?? 0,
             y: layoutNode?.y ?? 0,
         }
+        return {
+            nodeId: nodeId,
+            position: position,
+        }
     })
 }
-

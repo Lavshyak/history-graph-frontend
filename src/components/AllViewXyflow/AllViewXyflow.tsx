@@ -1,5 +1,5 @@
 import {useGetHistoryGetall} from "../../gen";
-import {createContext, useEffect, useMemo, useRef, useState} from "react";
+import {createContext, useEffect, useRef, useState} from "react";
 import "@xyflow/react/dist/style.css";
 import {Button, Divider, Flex, Space, Switch} from "antd";
 import {EventNode} from "./EventNode.tsx";
@@ -23,7 +23,8 @@ import {createNormalEvent, createNormalKeyedEvent} from "../../lib/event/event.t
 import {useStore} from "zustand/react";
 import {createStore, type StateCreator} from "zustand/vanilla";
 import {useEventHandling} from "../../lib/event/useEventHandling.ts";
-import {prettifyGraph3} from "./prettifyGraph2.ts";
+
+import {prettifyGraph3} from "./prettifyGraph3.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -88,7 +89,6 @@ function AllViewXyflow() {
     const [hasChanges, setHasChanges] = useState<boolean>(false);
 
     const nodeDatasStateManager = useRef(createNodeDatasStateManager()).current
-    const {allNodeDatasMap, addNodeFromSource} = useRef(createNodeDatasStateManager()).current
 
     const edgeDatasStateManager = useRef(
         (() => {
