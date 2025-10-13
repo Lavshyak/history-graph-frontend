@@ -1,130 +1,154 @@
 import {
-    calculateCurrentEdgeData,
-    calculateHasEdgeDataUpdates,
+    calculateEdgeCurrentData,
     type EdgeData,
-    type EdgeDataIdType, type EdgeSourceData,
-    type EdgeUpdatedData
+    type EdgeDataIdType,
+    type EdgeSourceData,
+    type EdgeUpdatedData, normalizeEdgeUpdatedData
 } from "../types/EdgeData.ts";
+import {
+    createNormalEvent,
+    createNormalKeyedEvent,
+    type NormalKeyedListenableEvent, type NormalListenableEvent, type NormalListenableEventsContainer,
+} from "../lib/event/event.ts";
 import type {NodeDataIdType} from "../types/NodeData.ts";
-import {coolerMitt, type CoolerMittForEmittersType, type CoolerMittType} from "../coolerMitt/coolerMitt.ts";
-import type {DeepReadonly} from "../lib/DeepReadonly.ts";
-import {produce} from "immer";
 
+type EdgesStateEvents = {
+    edgeDataUpdatedEvent: NormalKeyedListenableEvent<{ oldEdgeData: EdgeData, newEdgeData: EdgeData }, EdgeDataIdType>
+    edgeAddedEvent: NormalListenableEvent<{ edgeDataId: EdgeDataIdType }>
+    edgeRemovedEvent: NormalListenableEvent<{ edgeDataId: EdgeDataIdType }>
+}
 
-export type EdgesMap = Map<EdgeDataIdType, EdgeData>
-export type NodesIdsEdgesIdsMap = Map<NodeDataIdType, EdgeDataIdType[]>
+export type EdgeDatasStateManager = {
+    addEdgeFromSource(edgeSourceData: EdgeSourceData): void
+    updateEdgeData(edgeId: EdgeDataIdType, edgeUpdatedDataPart: Partial<EdgeUpdatedData>): void
+    markEdgeForDelete(edgeId: string, isMarkForDelete: boolean): void
 
+    edgesStateEvents: EdgesStateEvents,
+    allEdgeDatasMap: ReadonlyMap<EdgeDataIdType, EdgeData>,
+    updatedEdgeDataIdsSet: Set<EdgeDataIdType>,
+}
 
-type CoolerEdgesStateEvents = {
-    edgeDataMutated: {
-        additionalKey: string;
-        payload: DeepReadonly<EdgeData>;
-    };
-    someEdgeDataMutated: {
-        additionalKey: undefined;
-        payload: DeepReadonly<EdgeData>;
-    };
+export function createEdgeDatasStateManager(nodeMarkedForDeleteChangedEvent: NormalListenableEvent<{
+    nodeId: NodeDataIdType,
+    markedForDeleteState: boolean
+}>, nodeRemovedEvent: NormalListenableEvent<{ nodeId: NodeDataIdType }>): EdgeDatasStateManager {
+    const edgesStateEvents = {
+        edgeDataUpdatedEvent: createNormalKeyedEvent<{
+            oldEdgeData: EdgeData,
+            newEdgeData: EdgeData
+        }, EdgeDataIdType>(),
+        edgeAddedEvent: createNormalEvent<{ edgeDataId: EdgeDataIdType }>(),
+        edgeRemovedEvent: createNormalEvent<{ edgeDataId: EdgeDataIdType }>(),
+    }
 
-    someEdgeAddedFromSource: {
-        additionalKey: undefined;
-        payload: DeepReadonly<EdgeData>;
-    };
-    someEdgeRemoved: {
-        additionalKey: undefined;
-        payload: { edgeId: EdgeDataIdType };
-    };
-    someEdgeCreated: {
-        additionalKey: undefined;
-        payload: DeepReadonly<EdgeData>;
-    };
-};
+    const allEdgeDatasMap: Map<EdgeDataIdType, EdgeData> = new Map()
+    const nodeIdToEdgeIdsMap: Map<NodeDataIdType, EdgeDataIdType[]> = new Map()
+    const updatedEdgeDataIdsSet: Set<EdgeDataIdType> = new Set<EdgeDataIdType>()
 
-function coolerEdgesState() {
-    const allEdges: EdgesMap = new Map<EdgeDataIdType, EdgeData>()
-    const nodesIdsEdgesIds: NodesIdsEdgesIdsMap = new Map<NodeDataIdType, EdgeDataIdType[]>
+    nodeRemovedEvent.on(({nodeId}) => {
+        const edgeIds = nodeIdToEdgeIdsMap.get(nodeId)
+        if (!edgeIds) return;
 
-    const mitt: CoolerMittType<CoolerEdgesStateEvents> = coolerMitt<CoolerEdgesStateEvents>()
+        nodeIdToEdgeIdsMap.delete(nodeId)
+        edgeIds.forEach(edgeId => {
+            allEdgeDatasMap.delete(edgeId)
+            updatedEdgeDataIdsSet.delete(edgeId)
+            edgesStateEvents.edgeRemovedEvent.emit({edgeDataId: edgeId})
+        })
+    })
 
-    mitt.on({key: "someEdgeDataMutated"}, edgeData => mitt.emit({
-        key: "edgeDataMutated",
-        additionalKey: edgeData.sourceData.id
-    }, edgeData))
+    edgesStateEvents.edgeDataUpdatedEvent.on(({newEdgeData}) => {
+        if (newEdgeData.updatedData !== undefined) {
+            updatedEdgeDataIdsSet.add(newEdgeData.sourceData.id)
+        } else {
+            updatedEdgeDataIdsSet.delete(newEdgeData.sourceData.id)
+        }
+    })
+
+    nodeMarkedForDeleteChangedEvent.on(({nodeId, markedForDeleteState: nodeMarkedForDeleteState}) => {
+        const edgeIds = nodeIdToEdgeIdsMap.get(nodeId)
+        if (!edgeIds) return;
+
+        edgeIds.forEach(edgeId => {
+            const edgeData = allEdgeDatasMap.get(edgeId)
+            if (!edgeData) throw new Error(`edgeData not found in allEdgeDatasMap for edge id ${edgeId}`);
+
+            const newEdgeData: EdgeData = {
+                ...edgeData,
+                markedForDeleteBecauseNodes: nodeMarkedForDeleteState
+                    ? [...edgeData.markedForDeleteBecauseNodes, nodeId]
+                    : edgeData.markedForDeleteBecauseNodes.filter(_nodeId => _nodeId !== nodeId)
+            }
+
+            allEdgeDatasMap.set(edgeId, newEdgeData)
+            edgesStateEvents.edgeDataUpdatedEvent.emit(edgeId, {oldEdgeData: edgeData, newEdgeData: newEdgeData})
+        })
+    })
 
     return {
-        updateEdgeData(entry: { id: EdgeDataIdType; updatedData: Partial<EdgeUpdatedData> }) {
-            const edgeData = allEdges.get(entry.id)
-            if (!edgeData) return;
-            const mutated = produce(edgeData, draft => {
-                draft.updatedData = {...edgeData.updatedData, ...entry.updatedData}
-                draft.currentData = calculateCurrentEdgeData(edgeData.sourceData, edgeData.updatedData)
-                draft.tech.hasDataUpdates = calculateHasEdgeDataUpdates(edgeData.sourceData, edgeData.updatedData)
+        addEdgeFromSource(edgeSourceData: EdgeSourceData) {
+            if (allEdgeDatasMap.has(edgeSourceData.id))
+                throw new Error(`Could not add edge from edgeSourceData with id ${edgeSourceData.id}: exists`)
+
+            const newEdgeData: EdgeData = {
+                sourceData: edgeSourceData,
+                updatedData: undefined,
+                currentData: calculateEdgeCurrentData(edgeSourceData, undefined),
+
+                isExplicitlyMarkedForDelete: false,
+                markedForDeleteBecauseNodes: [],
+                sourceOrCreated: "source",
+            }
+
+            allEdgeDatasMap.set(edgeSourceData.id, newEdgeData);
+            edgesStateEvents.edgeAddedEvent.emit({edgeDataId: edgeSourceData.id})
+        },
+        updateEdgeData(edgeId: EdgeDataIdType, edgeUpdatedDataPart: Partial<EdgeUpdatedData>) {
+            const oldEdgeData = allEdgeDatasMap.get(edgeId)
+            if (!oldEdgeData) {
+                throw new Error(`Could not update edge with id ${edgeId}: not found`)
+            }
+
+            const newRawEdgeUpdatedData = {
+                ...oldEdgeData.updatedData,
+                ...edgeUpdatedDataPart
+            }
+
+            const newEdgeUpdatedData = normalizeEdgeUpdatedData(oldEdgeData.sourceData, newRawEdgeUpdatedData)
+
+            const newEdgeCurrentData = calculateEdgeCurrentData(oldEdgeData.sourceData, newEdgeUpdatedData)
+
+            const newEdgeData: EdgeData = {
+                ...oldEdgeData,
+                updatedData: newRawEdgeUpdatedData,
+                currentData: newEdgeCurrentData,
+            }
+
+            allEdgeDatasMap.set(newEdgeData.sourceData.id, newEdgeData);
+            edgesStateEvents.edgeDataUpdatedEvent.emit(newEdgeData.sourceData.id, {
+                oldEdgeData: oldEdgeData,
+                newEdgeData: newEdgeData
             })
-
-            allEdges.set(entry.id, mutated)
-
-            mitt.emit({key: "someEdgeDataMutated"}, mutated)
         },
-        markEdgeForDelete(entry: { id: EdgeDataIdType; markForDelete: boolean }) {
-            const edgeData = allEdges.get(entry.id)
-            if (!edgeData) return;
+        markEdgeForDelete(edgeId: string, isMarkForDelete: boolean) {
+            const oldEdgeData = allEdgeDatasMap.get(edgeId)
+            if (!oldEdgeData) {
+                throw new Error(`Could not update edge with id ${edgeId}: not found`)
+            }
 
-            const mutated = produce(edgeData, draft => {
-                draft.tech.isExplicitlyMarkedForDelete = entry.markForDelete;
-                draft.tech.isGenerallyMarkedForDelete = draft.tech.isExplicitlyMarkedForDelete || draft.tech.markedForDeleteBecauseNodes.length > 0
+            const newEdgeData: EdgeData = {
+                ...oldEdgeData,
+                isExplicitlyMarkedForDelete: isMarkForDelete
+            }
+
+            allEdgeDatasMap.set(newEdgeData.sourceData.id, newEdgeData);
+            edgesStateEvents.edgeDataUpdatedEvent.emit(newEdgeData.sourceData.id, {
+                oldEdgeData: oldEdgeData,
+                newEdgeData: newEdgeData
             })
-
-            allEdges.set(entry.id, mutated)
-            mitt.emit({key: "someEdgeDataMutated"}, mutated)
         },
-        addEdgeFromSource(entry: { edgeSourceData: EdgeSourceData }) {
-            const isExisting = allEdges.get(entry.edgeSourceData.id)
-            if (isExisting) {
-                throw new Error(`edge with same id (${entry.edgeSourceData.id}) already exist`)
-            }
-
-            const edgeData: EdgeData = {
-                sourceData: entry.edgeSourceData,
-                currentData: calculateCurrentEdgeData(entry.edgeSourceData, undefined),
-                tech: {
-                    isExplicitlyMarkedForDelete: false,
-                    isGenerallyMarkedForDelete: false,
-                    markedForDeleteBecauseNodes: [],
-                    hasDataUpdates: false,
-                    sourceOrCreated: "source"
-                },
-                updatedData: undefined
-            }
-
-            allEdges.set(entry.edgeSourceData.id, edgeData)
-            mitt.emit({key: "someEdgeAddedFromSource"}, edgeData)
-        },
-        createEdge(entry: { edgeSourceData: EdgeSourceData }) {
-            const isExisting = allEdges.get(entry.edgeSourceData.id)
-            if (isExisting) {
-                throw new Error(`edge with same id (${entry.edgeSourceData.id}) already exist`)
-            }
-
-            const edgeData: EdgeData = {
-                sourceData: entry.edgeSourceData,
-                currentData: calculateCurrentEdgeData(entry.edgeSourceData, undefined),
-                tech: {
-                    isExplicitlyMarkedForDelete: false,
-                    isGenerallyMarkedForDelete: false,
-                    markedForDeleteBecauseNodes: [],
-                    hasDataUpdates: false,
-                    sourceOrCreated: "created"
-                },
-                updatedData: undefined
-            }
-
-            allEdges.set(entry.edgeSourceData.id, edgeData)
-            mitt.emit({key: "someEdgeCreated"}, edgeData)
-        },
-        removeEdge(entry: { edgeId: EdgeDataIdType }) {
-            const isDeleted = allEdges.delete(entry.edgeId)
-            if (isDeleted) {
-                mitt.emit({key: "someEdgeRemoved"}, {edgeId: entry.edgeId})
-            }
-        }
+        edgesStateEvents: edgesStateEvents as NormalListenableEventsContainer<typeof edgesStateEvents>,
+        allEdgeDatasMap: allEdgeDatasMap as ReadonlyMap<EdgeDataIdType, EdgeData>,
+        updatedEdgeDataIdsSet: updatedEdgeDataIdsSet
     }
 }
