@@ -12,7 +12,7 @@ import {
     type NodeChange,
     ReactFlow,
     Controls,
-    Background, applyNodeChanges, type EdgeChange, applyEdgeChanges, type XYPosition
+    Background, applyNodeChanges, type EdgeChange, applyEdgeChanges, type XYPosition, useEdgesState
 } from "@xyflow/react";
 import FloatingEdge from "./FloatingEdge.tsx";
 import type {NodeDataIdType, NodeSourceData} from "../../types/NodeData.ts";
@@ -25,6 +25,7 @@ import {createStore, type StateCreator} from "zustand/vanilla";
 import {useEventHandling} from "../../lib/event/useEventHandling.ts";
 
 import {prettifyGraph3} from "./prettifyGraph3.ts";
+import type {DeepReadonly} from "../../lib/DeepReadonly.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -129,13 +130,13 @@ function AllViewXyflow() {
     const recommendedNodePositionsOnAdd = useRef(new Map<NodeDataIdType, XYPosition>()).current
 
     const {xfNodes, addXfNode, removeXfNode/*, changeXfNodePosition*/, applyXfNodeChanges} = useLocalState<{
-        xfNodes: XfNode[]
+        xfNodes: readonly Readonly<XfNode>[]
         addXfNode(nodeId: NodeDataIdType): void
         removeXfNode(nodeId: NodeDataIdType): void
         /*changeXfNodePosition(nodePositionChange: NodePositionChange): void*/
         applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) : void
     }>((set, get) => ({
-        xfNodes: [] as XfNode[],
+        xfNodes: [],
         addXfNode(nodeId: NodeDataIdType) {
             const position = recommendedNodePositionsOnAdd.get(nodeId) ?? {x: 0, y: 0}
 
@@ -194,9 +195,9 @@ function AllViewXyflow() {
                 return {
                     xfEdges: [...state.xfEdges, {
                         id: edgeId,
-                        source: edgeData.sourceData.id,
-                        target: edgeData.sourceData.id,
-                        type: 'FloatingEdge'
+                        source: edgeData.sourceData.fromId,
+                        target: edgeData.sourceData.toId,
+                        type: 'FloatingEdge',
                     }],
                 }
             })

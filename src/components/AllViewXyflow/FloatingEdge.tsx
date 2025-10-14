@@ -7,7 +7,7 @@ import {
 import {getEdgeParams} from './utils.js';
 import {Button, Collapse, Flex} from 'antd';
 import {getSpecialPath} from "./GetSpecialPath.ts";
-import {useContext, useMemo, useState} from "react";
+import {useContext, useMemo, useRef, useState} from "react";
 import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import {EditableContext} from "./Contexts.ts";
 import {EdgeDatasStateManagerContext} from "./AllViewXyflow.tsx";
@@ -63,7 +63,7 @@ function FloatingEdge({
         const multipleEdges = getEdges().filter(e =>
             (e.source === source && e.target === target)
             || (e.source === target && e.target === source)
-        ).map(e => e.data!.currentData.id)
+        ).map(e => e.id)
             .sort((a, b) => a.localeCompare(b))
             .map((id) => ({edgeId: id, delta: 0}));
 
@@ -87,6 +87,9 @@ function FloatingEdge({
         targetY: ty
     }, currentDelta, 300);
 
+    const renderCountRef = useRef(0)
+    renderCountRef.current += 1
+
     return (
         <>
             <BaseEdge
@@ -106,6 +109,7 @@ function FloatingEdge({
                         overflow: "hidden"
                     }}
                 >
+                    {renderCountRef.current}
                     <div style={{
                         position: "relative",
                         minWidth: "50px",

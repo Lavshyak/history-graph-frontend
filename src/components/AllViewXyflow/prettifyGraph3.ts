@@ -7,8 +7,8 @@ export async function prettifyGraph3(
         source: string,
         target: string,
     })[],
-    nodeWidth: number = 240,
-    nodeHeight: number = 100
+    nodeWidth: number = 250,
+    nodeHeight: number = 600
 ) {
     const elk = new ElkConstructor();
 
