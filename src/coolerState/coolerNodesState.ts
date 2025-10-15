@@ -19,6 +19,7 @@ type NodesStateEvents = {
 
 export type NodeDatasStateManager = {
     addNodeFromSource(nodeSourceData: NodeSourceData): void
+    addNodeFromCreated(nodeSourceData: NodeSourceData): void
     updateNodeData(nodeId: NodeDataIdType, nodeUpdatedDataPart: Partial<NodeUpdatedData>): void
     markNodeForDelete(nodeId: string, isMarkForDelete: boolean): void
 
@@ -67,6 +68,22 @@ export function createNodeDatasStateManager(): NodeDatasStateManager {
 
                 isExplicitlyMarkedForDelete: false,
                 sourceOrCreated: "source"
+            }
+
+            allNodeDatasMap.set(nodeSourceData.id, newNodeData);
+            nodesStateEvents.nodeAddedEvent.emit({nodeDataId: nodeSourceData.id})
+        },
+        addNodeFromCreated(nodeSourceData: NodeSourceData){
+            if (allNodeDatasMap.has(nodeSourceData.id))
+                throw new Error(`Could not add node from nodeSourceData with id ${nodeSourceData.id}: exists`)
+
+            const newNodeData: NodeData = {
+                sourceData: nodeSourceData,
+                updatedData: undefined,
+                currentData: calculateNodeCurrentData(nodeSourceData, undefined),
+
+                isExplicitlyMarkedForDelete: false,
+                sourceOrCreated: "created"
             }
 
             allNodeDatasMap.set(nodeSourceData.id, newNodeData);

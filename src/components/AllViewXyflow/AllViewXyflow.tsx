@@ -25,6 +25,7 @@ import {createStore, type StateCreator} from "zustand/vanilla";
 import {useEventHandling} from "../../lib/event/useEventHandling.ts";
 
 import {prettifyGraph3} from "./prettifyGraph3.ts";
+import type {DeepReadonly} from "../../lib/DeepReadonly.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -61,6 +62,8 @@ export const NodeDatasStateManagerContext = createContext<NodeDatasStateManager>
     updatedNodeDataIdsSet: new Set(),
     addNodeFromSource(): void {
     },
+    addNodeFromCreated() {
+    },
     markNodeForDelete(): void {
     },
     updateNodeData(): void {
@@ -76,6 +79,8 @@ export const EdgeDatasStateManagerContext = createContext<EdgeDatasStateManager>
     },
     updatedEdgeDataIdsSet: new Set(),
     addEdgeFromSource(): void {
+    },
+    addEdgeFromCreated() {
     },
     markEdgeForDelete(): void {
     },
@@ -169,7 +174,7 @@ function AllViewXyflow() {
         },*/
         applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) {
             const currentNodes = get().xfNodes
-            const newNodes = applyNodeChanges(nodeChanges, currentNodes)
+            const newNodes = applyNodeChanges(nodeChanges, currentNodes as XfNode[])
             set({
                 xfNodes: newNodes
             })
@@ -181,12 +186,12 @@ function AllViewXyflow() {
     })
 
     const {xfEdges, addXfEdge, removeXfEdge, applyXfEdgeChanges} = useLocalState<{
-        xfEdges: XfEdge[]
+        xfEdges: readonly Readonly<XfEdge>[]
         addXfEdge(edgeId: EdgeDataIdType): void
         removeXfEdge(edgeId: EdgeDataIdType): void,
         applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]): void
     }>((set, get) => ({
-        xfEdges: [] as XfEdge[],
+        xfEdges: [],
         addXfEdge(edgeId: EdgeDataIdType) {
             set((state) => {
                 const edgeData = edgeDatasStateManager.allEdgeDatasMap.get(edgeId)
@@ -208,7 +213,7 @@ function AllViewXyflow() {
         },
         applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]){
             const currentEdges = get().xfEdges
-            const newEdges = applyEdgeChanges(changes, currentEdges)
+            const newEdges = applyEdgeChanges(changes, currentEdges as XfEdge[])
             set({
                 xfEdges: newEdges
             })

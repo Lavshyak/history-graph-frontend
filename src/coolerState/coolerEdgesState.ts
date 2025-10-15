@@ -20,6 +20,7 @@ type EdgesStateEvents = {
 
 export type EdgeDatasStateManager = {
     addEdgeFromSource(edgeSourceData: EdgeSourceData): void
+    addEdgeFromCreated(edgeSourceData: EdgeSourceData): void
     updateEdgeData(edgeId: EdgeDataIdType, edgeUpdatedDataPart: Partial<EdgeUpdatedData>): void
     markEdgeForDelete(edgeId: string, isMarkForDelete: boolean): void
 
@@ -98,6 +99,35 @@ export function createEdgeDatasStateManager(nodeMarkedForDeleteChangedEvent: Nor
                 isExplicitlyMarkedForDelete: false,
                 markedForDeleteBecauseNodes: [],
                 sourceOrCreated: "source",
+            }
+
+            allEdgeDatasMap.set(edgeSourceData.id, newEdgeData);
+
+            const relatedNodes = [edgeSourceData.fromId, edgeSourceData.toId]
+            relatedNodes.forEach(nodeId => {
+                const edges = nodeIdToEdgeIdsMap.get(nodeId)
+                if(!edges){
+                    nodeIdToEdgeIdsMap.set(nodeId, [edgeSourceData.id])
+                }
+                else{
+                    edges.push(edgeSourceData.id)
+                }
+            })
+
+            edgesStateEvents.edgeAddedEvent.emit({edgeDataId: edgeSourceData.id})
+        },
+        addEdgeFromCreated(edgeSourceData: EdgeSourceData){
+            if (allEdgeDatasMap.has(edgeSourceData.id))
+                throw new Error(`Could not add edge from edgeSourceData with id ${edgeSourceData.id}: exists`)
+
+            const newEdgeData: EdgeData = {
+                sourceData: edgeSourceData,
+                updatedData: undefined,
+                currentData: calculateEdgeCurrentData(edgeSourceData, undefined),
+
+                isExplicitlyMarkedForDelete: false,
+                markedForDeleteBecauseNodes: [],
+                sourceOrCreated: "created",
             }
 
             allEdgeDatasMap.set(edgeSourceData.id, newEdgeData);
