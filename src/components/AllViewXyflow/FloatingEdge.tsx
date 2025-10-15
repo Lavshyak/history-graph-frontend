@@ -23,7 +23,7 @@ function FloatingEdge({
     console.log(`edgeRendering ${thisEdgeId}`)
     const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
 
-    const [data, setData] = useState(edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId) ?? {
+    const [data, setData] = useState(edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId)/* ?? {
         isExplicitlyMarkedForDelete: false,
         markedForDeleteBecauseNodes: [],
         sourceData: {
@@ -40,12 +40,17 @@ function FloatingEdge({
             fromId: 'notInitialized',
         },
         sourceOrCreated: "source"
-    })
+    }*/)
 
     useKeyedEventHandling(edgeDatasStateManagerContext.edgesStateEvents.edgeDataUpdatedEvent, thisEdgeId,
         ({newEdgeData}) => {
             setData(newEdgeData)
         })
+
+    if(!data)
+    {
+        throw new Error("no data")
+    }
 
     const isGenerallyMarkedForDelete = data.isExplicitlyMarkedForDelete || data.markedForDeleteBecauseNodes.length > 0
 

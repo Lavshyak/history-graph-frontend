@@ -12,7 +12,7 @@ import {
     type NodeChange,
     ReactFlow,
     Controls,
-    Background, applyNodeChanges, type EdgeChange, applyEdgeChanges, type XYPosition, useEdgesState
+    Background, applyNodeChanges, type EdgeChange, applyEdgeChanges, type XYPosition
 } from "@xyflow/react";
 import FloatingEdge from "./FloatingEdge.tsx";
 import type {NodeDataIdType, NodeSourceData} from "../../types/NodeData.ts";
@@ -25,7 +25,6 @@ import {createStore, type StateCreator} from "zustand/vanilla";
 import {useEventHandling} from "../../lib/event/useEventHandling.ts";
 
 import {prettifyGraph3} from "./prettifyGraph3.ts";
-import type {DeepReadonly} from "../../lib/DeepReadonly.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -287,11 +286,11 @@ function AllViewXyflow() {
                 <div style={{color: "black", backgroundColor: "white"}}>
                     <div style={{height: "70vh", width: "90vw"}}>
                         <NodeDatasStateManagerContext.Provider value={nodeDatasStateManager}>
-                            <EdgeDatasStateManagerContext value={edgeDatasStateManager}>
+                            <EdgeDatasStateManagerContext.Provider value={edgeDatasStateManager}>
                                 <EditableContext value={isEditable}>
                                     <ReactFlow
-                                        nodes={xfNodes}
-                                        edges={xfEdges}
+                                        nodes={xfNodes as XfNode[]}
+                                        edges={xfEdges as XfEdge[]}
                                         onNodesChange={applyXfNodeChanges}
                                         onEdgesChange={applyXfEdgeChanges}
                                         fitView
@@ -305,7 +304,7 @@ function AllViewXyflow() {
                                         <Background/>
                                     </ReactFlow>
                                 </EditableContext>
-                            </EdgeDatasStateManagerContext>
+                            </EdgeDatasStateManagerContext.Provider>
                         </NodeDatasStateManagerContext.Provider>
                     </div>
                 </div>

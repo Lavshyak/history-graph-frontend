@@ -101,6 +101,18 @@ export function createEdgeDatasStateManager(nodeMarkedForDeleteChangedEvent: Nor
             }
 
             allEdgeDatasMap.set(edgeSourceData.id, newEdgeData);
+
+            const relatedNodes = [edgeSourceData.fromId, edgeSourceData.toId]
+            relatedNodes.forEach(nodeId => {
+                const edges = nodeIdToEdgeIdsMap.get(nodeId)
+                if(!edges){
+                    nodeIdToEdgeIdsMap.set(nodeId, [edgeSourceData.id])
+                }
+                else{
+                    edges.push(edgeSourceData.id)
+                }
+            })
+
             edgesStateEvents.edgeAddedEvent.emit({edgeDataId: edgeSourceData.id})
         },
         updateEdgeData(edgeId: EdgeDataIdType, edgeUpdatedDataPart: Partial<EdgeUpdatedData>) {
