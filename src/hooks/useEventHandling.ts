@@ -1,5 +1,5 @@
 import {useEffect} from "react";
-import type {EventHandler, NormalListenableEvent} from "./event.ts";
+import type {EventHandler, NormalListenableEvent} from "../lib/event.ts";
 
 export function useEventHandling<TPayload>(
     event: NormalListenableEvent<TPayload>,

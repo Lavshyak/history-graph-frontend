@@ -1,31 +1,33 @@
 import {useGetHistoryGetall} from "../../gen";
-import {createContext, type ReactNode, useContext, useEffect, useRef, useState} from "react";
+import {useContext, useEffect, useRef, useState} from "react";
 import "@xyflow/react/dist/style.css";
 import {Button, Divider, Flex, Space, Switch} from "antd";
 import {EventNode} from "./EventNode.tsx";
 import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import {devDtoEventsAndRelationshipsMock} from "../dev.ts";
 import CustomConnectionLine from "./CustomConnectionLine.tsx";
-import {EditableContext} from "./Contexts.ts";
 import {
+    applyEdgeChanges,
+    applyNodeChanges,
+    Background,
+    Controls,
+    type EdgeChange,
     MarkerType,
     type NodeChange,
     ReactFlow,
-    Controls,
-    Background, applyNodeChanges, type EdgeChange, applyEdgeChanges, type XYPosition
+    type XYPosition
 } from "@xyflow/react";
 import FloatingEdge from "./FloatingEdge.tsx";
 import type {NodeDataIdType, NodeSourceData} from "../../types/NodeData.ts";
 import type {EdgeDataIdType, EdgeSourceData} from "../../types/EdgeData.ts";
-import {createNodeDatasStateManager, type NodeDatasStateManager} from "../../coolerState/coolerNodesState.ts";
-import {createEdgeDatasStateManager, type EdgeDatasStateManager} from "../../coolerState/coolerEdgesState.ts";
-import {createNormalEvent, createNormalKeyedEvent} from "../../lib/event/event.ts";
-import {useStore} from "zustand/react";
-import {createStore, type StateCreator} from "zustand/vanilla";
-import {useEventHandling} from "../../lib/event/useEventHandling.ts";
+import {useEventHandling} from "../../hooks/useEventHandling.ts";
 
-import {prettifyGraph3} from "./prettifyGraph3.ts";
-import type {DeepReadonly} from "../../lib/DeepReadonly.ts";
+import {prettifyGraph} from "./prettifyGraph.ts";
+import {useLocalState} from "../../hooks/UseLocalState.ts";
+import {NodeDatasStateManagerContext} from "../../contexts/NodeDatasStateManagerContext.ts";
+import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
+import {GraphDataHasChangesContext} from "../../contexts/GraphDataHasChangesContext.ts";
+import {EditableContext} from "./Contexts.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -46,114 +48,6 @@ const defaultEdgeOptions = {
         color: '#b1b1b7',
     },
 };
-
-function useLocalState<StateT>(initializer: StateCreator<StateT, [], [], StateT>): StateT {
-    const storeRef = useRef(createStore<StateT>(initializer))
-    return useStore(storeRef.current)
-}
-
-export const NodeDatasStateManagerContext = createContext<NodeDatasStateManager>({
-    allNodeDatasMap: new Map(),
-    markedForDeleteNodeDataIdsSet: new Set(),
-    nodesStateEvents: {
-        nodeDataUpdatedEvent: createNormalKeyedEvent(),
-        nodeAddedEvent: createNormalEvent()
-    },
-    updatedNodeDataIdsSet: new Set(),
-    addNodeFromSource(): void {
-    },
-    addNodeFromCreated() {
-    },
-    markNodeForDelete(): void {
-    },
-    updateNodeData(): void {
-    }
-})
-
-export const EdgeDatasStateManagerContext = createContext<EdgeDatasStateManager>({
-    allEdgeDatasMap: new Map(),
-    edgesStateEvents: {
-        edgeDataUpdatedEvent: createNormalKeyedEvent(),
-        edgeAddedEvent: createNormalEvent(),
-        edgeRemovedEvent: createNormalEvent()
-    },
-    updatedEdgeDataIdsSet: new Set(),
-    addEdgeFromSource(): void {
-    },
-    addEdgeFromCreated() {
-    },
-    markEdgeForDelete(): void {
-    },
-    updateEdgeData(): void {
-    }
-
-})
-
-export function NodeDatasStateManagerContextWrapper({children}: { children: ReactNode }) {
-    const nodeDatasStateManager = useRef(createNodeDatasStateManager()).current
-
-    return (<NodeDatasStateManagerContext.Provider value={nodeDatasStateManager}>
-        {children}
-    </NodeDatasStateManagerContext.Provider>)
-}
-
-export function EdgeDatasStateManagerContextWrapper({children}: { children: ReactNode }) {
-    const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
-
-    const edgeDatasStateManager = useRef(
-        (() => {
-            const nodeMarkedForDeleteEvent = createNormalEvent<{
-                nodeId: NodeDataIdType,
-                markedForDeleteState: boolean
-            }>()
-            nodeDatasStateManager.nodesStateEvents.nodeDataUpdatedEvent.on(({oldNodeData, newNodeData}) => {
-                if (oldNodeData.isExplicitlyMarkedForDelete !== newNodeData.isExplicitlyMarkedForDelete) {
-                    nodeMarkedForDeleteEvent.emit({
-                        nodeId: newNodeData.sourceData.id,
-                        markedForDeleteState: newNodeData.isExplicitlyMarkedForDelete
-                    })
-                }
-            })
-
-            const nodeRemovedEvent = createNormalEvent<{ nodeId: NodeDataIdType }>()
-
-            return createEdgeDatasStateManager(nodeMarkedForDeleteEvent, nodeRemovedEvent)
-        })()
-    ).current
-
-    return (<EdgeDatasStateManagerContext.Provider value={edgeDatasStateManager}>
-        {children}
-    </EdgeDatasStateManagerContext.Provider>)
-}
-
-
-export const GraphDataHasChangesContext = createContext<boolean>(false)
-
-export function GraphHasChangesContextWrapper({children}: { children: ReactNode }) {
-    const [hasChanges, setHasChanges] = useState<boolean>(false);
-
-    const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
-    const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
-
-    useEventHandling(nodeDatasStateManager.nodesStateEvents.nodeDataUpdatedEvent, () => {
-        if (nodeDatasStateManager.updatedNodeDataIdsSet.size > 0 || edgeDatasStateManager.updatedEdgeDataIdsSet.size > 0) {
-            setHasChanges(true)
-        } else {
-            setHasChanges(false)
-        }
-    })
-    useEventHandling(edgeDatasStateManager.edgesStateEvents.edgeDataUpdatedEvent, () => {
-        if (nodeDatasStateManager.updatedNodeDataIdsSet.size > 0 || edgeDatasStateManager.updatedEdgeDataIdsSet.size > 0) {
-            setHasChanges(true)
-        } else {
-            setHasChanges(false)
-        }
-    })
-
-    return (<GraphDataHasChangesContext.Provider value={hasChanges}>
-        {children}
-    </GraphDataHasChangesContext.Provider>)
-}
 
 function AllViewXyflow() {
     const performanceMark = performance.mark("AllViewXyflow")
@@ -186,25 +80,6 @@ function AllViewXyflow() {
                 xfNodes: state.xfNodes.filter(x => x.id !== nodeId)
             }))
         },
-        /*changeXfNodePosition({type:_, ...nodePositionChange}: NodePositionChange) {
-            set((state) => {
-                const idx = state.xfNodes.findIndex(xfNode => xfNode.id === nodePositionChange.id)
-                if (idx === -1) throw new Error(`node not found in xfNodes with id ${nodePositionChange.id}`)
-
-                const oldNode = state.xfNodes[idx]
-                const newNode: XfNode = {
-                    ...oldNode,
-                    ...nodePositionChange
-                }
-
-                const newXfNodes = [...state.xfNodes]
-                newXfNodes[idx] = newNode
-
-                return {
-                    xfNodes: newXfNodes,
-                }
-            })
-        },*/
         applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) {
             const currentNodes = get().xfNodes
             const newNodes = applyNodeChanges(nodeChanges, currentNodes as XfNode[])
@@ -287,7 +162,7 @@ function AllViewXyflow() {
             toId: r.toId.toString(),
         }));
 
-        prettifyGraph3(newNodeSourceDatas.map(nsd => nsd.id), newEdgeSourceDatas.map(esd => ({
+        prettifyGraph(newNodeSourceDatas.map(nsd => nsd.id), newEdgeSourceDatas.map(esd => ({
             id: esd.id,
             source: esd.fromId,
             target: esd.toId
@@ -319,7 +194,7 @@ function AllViewXyflow() {
             <Flex vertical>
                 <div style={{color: "black", backgroundColor: "white"}}>
                     <div style={{height: "70vh", width: "90vw"}}>
-                        <EditableContext value={isEditable}>
+                        <EditableContext.Provider value={isEditable}>
                             <ReactFlow
                                 nodes={xfNodes as XfNode[]}
                                 edges={xfEdges as XfEdge[]}
@@ -335,7 +210,7 @@ function AllViewXyflow() {
                                 <Controls showInteractive={true}/>
                                 <Background/>
                             </ReactFlow>
-                        </EditableContext>
+                        </EditableContext.Provider>
                     </div>
                 </div>
                 <div style={{

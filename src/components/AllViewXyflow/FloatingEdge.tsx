@@ -7,11 +7,11 @@ import {
 import {getEdgeParams} from './utils.js';
 import {Button, Collapse, Flex} from 'antd';
 import {getSpecialPath} from "./GetSpecialPath.ts";
-import {useContext, useMemo, useRef, useState} from "react";
+import {useContext, useMemo, useState} from "react";
 import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import {EditableContext} from "./Contexts.ts";
-import {EdgeDatasStateManagerContext} from "./AllViewXyflow.tsx";
-import {useKeyedEventHandling} from "../../lib/event/useKeyedEventHandling.ts";
+import {useKeyedEventHandling} from "../../hooks/useKeyedEventHandling.ts";
+import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
 
 function FloatingEdge({
                           id: thisEdgeId,
@@ -62,7 +62,7 @@ function FloatingEdge({
 
     const {sx, sy, tx, ty} = getEdgeParams(sourceNode, targetNode);
 
-    const {getEdges, updateEdge} = useReactFlow<XfNode, XfEdge>()
+    const {getEdges} = useReactFlow<XfNode, XfEdge>()
 
     const {currentDelta} = useMemo(() => {
         const multipleEdges = getEdges().filter(e =>

@@ -10,7 +10,7 @@ import {
     createNormalKeyedEvent,
     type NormalKeyedListenableEvent,
     type NormalListenableEvent, type NormalListenableEventsContainer
-} from "../lib/event/event.ts";
+} from "../lib/event.ts";
 
 type NodesStateEvents = {
     nodeDataUpdatedEvent: NormalKeyedListenableEvent<{ oldNodeData: NodeData, newNodeData: NodeData }, NodeDataIdType>

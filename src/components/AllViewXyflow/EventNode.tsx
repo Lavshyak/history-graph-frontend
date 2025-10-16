@@ -2,9 +2,9 @@ import {Handle, type NodeProps, Position, useConnection} from "@xyflow/react";
 import {Button, Collapse, Flex} from "antd";
 import {type CSSProperties, useContext, useMemo, useRef, useState} from "react";
 import {EditableContext} from "./Contexts.ts";
-import {NodeDatasStateManagerContext} from "./AllViewXyflow.tsx";
-import {useKeyedEventHandling} from "../../lib/event/useKeyedEventHandling.ts";
+import {useKeyedEventHandling} from "../../hooks/useKeyedEventHandling.ts";
 import type {XfNode} from "./XyFlowTypeAliases.ts";
+import {NodeDatasStateManagerContext} from "../../contexts/NodeDatasStateManagerContext.ts";
 
 const sourceHandleStyle: CSSProperties = {
     width: "100%",

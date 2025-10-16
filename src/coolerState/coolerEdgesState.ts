@@ -9,7 +9,7 @@ import {
     createNormalEvent,
     createNormalKeyedEvent,
     type NormalKeyedListenableEvent, type NormalListenableEvent, type NormalListenableEventsContainer,
-} from "../lib/event/event.ts";
+} from "../lib/event.ts";
 import type {NodeDataIdType} from "../types/NodeData.ts";
 
 type EdgesStateEvents = {

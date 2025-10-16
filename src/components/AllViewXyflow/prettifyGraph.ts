@@ -1,6 +1,6 @@
 import ElkConstructor from "elkjs";
 
-export async function prettifyGraph3(
+export async function prettifyGraph(
     nodeIds: string[],
     edges: ({
         id: string

@@ -1,5 +1,5 @@
 import {useEffect} from "react";
-import type {EventHandler, NormalKeyedListenableEvent} from "./event.ts";
+import type {EventHandler, NormalKeyedListenableEvent} from "../lib/event.ts";
 
 export function useKeyedEventHandling<TPayload, TKey extends (string | null) = string>(
     event: NormalKeyedListenableEvent<TPayload, TKey>,
