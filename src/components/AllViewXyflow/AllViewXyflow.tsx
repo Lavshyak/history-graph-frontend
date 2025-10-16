@@ -1,5 +1,5 @@
 import {useGetHistoryGetall} from "../../gen";
-import {useContext, useEffect, useRef, useState} from "react";
+import {useCallback, useContext, useEffect, useRef, useState} from "react";
 import "@xyflow/react/dist/style.css";
 import {Button, Divider, Flex, Space, Switch} from "antd";
 import {EventNode} from "./EventNode.tsx";
@@ -189,6 +189,15 @@ function AllViewXyflow() {
         console.log(JSON.stringify(xfEdges))
     }, [xfEdges]);*/
 
+    const frameRef = useRef<number>(0);
+
+    const onNodesChangeRaf = useCallback((changes:NodeChange<XfNode>[]) => {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = requestAnimationFrame(() => {
+            applyXfNodeChanges(changes);
+        });
+    }, [applyXfNodeChanges]);
+
     return (
         <div>
             <Flex vertical>
@@ -198,7 +207,7 @@ function AllViewXyflow() {
                             <ReactFlow
                                 nodes={xfNodes as XfNode[]}
                                 edges={xfEdges as XfEdge[]}
-                                onNodesChange={applyXfNodeChanges}
+                                onNodesChange={onNodesChangeRaf}
                                 onEdgesChange={applyXfEdgeChanges}
                                 fitView
                                 nodeTypes={nodeTypesForXyflow}
