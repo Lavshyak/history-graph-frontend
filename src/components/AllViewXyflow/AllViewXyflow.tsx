@@ -189,13 +189,24 @@ function AllViewXyflow() {
         console.log(JSON.stringify(xfEdges))
     }, [xfEdges]);*/
 
-    const frameRef = useRef<number>(0);
+    const frameRef = useRef<number | null>(null);
 
-    const onNodesChangeRaf = useCallback((changes:NodeChange<XfNode>[]) => {
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = requestAnimationFrame(() => {
-            applyXfNodeChanges(changes);
-        });
+    const onNodesChangeRaf = useCallback((changes : NodeChange<XfNode>[]) => {
+        const positionChanges = changes.filter(change => change.type === "position");
+        if(positionChanges.length > 0) {
+            if (frameRef.current === null) {
+                frameRef.current = requestAnimationFrame(() => {
+                    applyXfNodeChanges(positionChanges);
+                    frameRef.current = null;
+                });
+            }
+        }
+
+        const otherChanges = changes.filter(change => change.type !== "position");
+        if (otherChanges.length > 0) {
+            applyXfNodeChanges(otherChanges)
+        }
+
     }, [applyXfNodeChanges]);
 
     return (
