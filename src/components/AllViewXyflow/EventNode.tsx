@@ -54,9 +54,6 @@ export function EventNode({id: thisNodeId}: NodeProps<XfNode>) {
 
     const isEditable = useContext(EditableContext)
 
-    const renderCount = useRef(0);
-    renderCount.current++;
-
     if(!data)
     {
         return <>no data for node id {thisNodeId}</>
@@ -75,7 +72,6 @@ export function EventNode({id: thisNodeId}: NodeProps<XfNode>) {
                 alignItems: "center",
                 justifyContent: "center"
             }}>
-                {renderCount.current}
                 <div style={{
                     position: "absolute",
                     backgroundColor: data.isExplicitlyMarkedForDelete ? "red" : "white",

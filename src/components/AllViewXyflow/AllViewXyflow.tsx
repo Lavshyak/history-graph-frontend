@@ -1,5 +1,5 @@
 import {useGetHistoryGetall} from "../../gen";
-import {createContext, useEffect, useRef, useState} from "react";
+import {createContext, type ReactNode, useContext, useEffect, useRef, useState} from "react";
 import "@xyflow/react/dist/style.css";
 import {Button, Divider, Flex, Space, Switch} from "antd";
 import {EventNode} from "./EventNode.tsx";
@@ -47,7 +47,7 @@ const defaultEdgeOptions = {
     },
 };
 
-function useLocalState<StateT>(initializer: StateCreator<StateT, [], [], StateT>) : StateT {
+function useLocalState<StateT>(initializer: StateCreator<StateT, [], [], StateT>): StateT {
     const storeRef = useRef(createStore<StateT>(initializer))
     return useStore(storeRef.current)
 }
@@ -89,11 +89,16 @@ export const EdgeDatasStateManagerContext = createContext<EdgeDatasStateManager>
 
 })
 
-function AllViewXyflow() {
-    const [isEditable, setIsEditable] = useState<boolean>(true);
-    const [hasChanges, setHasChanges] = useState<boolean>(false);
-
+export function NodeDatasStateManagerContextWrapper({children}: { children: ReactNode }) {
     const nodeDatasStateManager = useRef(createNodeDatasStateManager()).current
+
+    return (<NodeDatasStateManagerContext.Provider value={nodeDatasStateManager}>
+        {children}
+    </NodeDatasStateManagerContext.Provider>)
+}
+
+export function EdgeDatasStateManagerContextWrapper({children}: { children: ReactNode }) {
+    const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 
     const edgeDatasStateManager = useRef(
         (() => {
@@ -116,6 +121,20 @@ function AllViewXyflow() {
         })()
     ).current
 
+    return (<EdgeDatasStateManagerContext.Provider value={edgeDatasStateManager}>
+        {children}
+    </EdgeDatasStateManagerContext.Provider>)
+}
+
+
+export const GraphDataHasChangesContext = createContext<boolean>(false)
+
+export function GraphHasChangesContextWrapper({children}: { children: ReactNode }) {
+    const [hasChanges, setHasChanges] = useState<boolean>(false);
+
+    const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
+    const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
+
     useEventHandling(nodeDatasStateManager.nodesStateEvents.nodeDataUpdatedEvent, () => {
         if (nodeDatasStateManager.updatedNodeDataIdsSet.size > 0 || edgeDatasStateManager.updatedEdgeDataIdsSet.size > 0) {
             setHasChanges(true)
@@ -131,6 +150,20 @@ function AllViewXyflow() {
         }
     })
 
+    return (<GraphDataHasChangesContext.Provider value={hasChanges}>
+        {children}
+    </GraphDataHasChangesContext.Provider>)
+}
+
+function AllViewXyflow() {
+    const performanceMark = performance.mark("AllViewXyflow")
+
+    const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
+    const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
+    const graphHasChanges = useContext(GraphDataHasChangesContext);
+
+    const [isEditable, setIsEditable] = useState<boolean>(true);
+
     const recommendedNodePositionsOnAdd = useRef(new Map<NodeDataIdType, XYPosition>()).current
 
     const {xfNodes, addXfNode, removeXfNode/*, changeXfNodePosition*/, applyXfNodeChanges} = useLocalState<{
@@ -138,7 +171,7 @@ function AllViewXyflow() {
         addXfNode(nodeId: NodeDataIdType): void
         removeXfNode(nodeId: NodeDataIdType): void
         /*changeXfNodePosition(nodePositionChange: NodePositionChange): void*/
-        applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) : void
+        applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]): void
     }>((set, get) => ({
         xfNodes: [],
         addXfNode(nodeId: NodeDataIdType) {
@@ -211,7 +244,7 @@ function AllViewXyflow() {
                 xfEdges: state.xfEdges.filter(x => x.id !== edgeId)
             }))
         },
-        applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]){
+        applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]) {
             const currentEdges = get().xfEdges
             const newEdges = applyEdgeChanges(changes, currentEdges as XfEdge[])
             set({
@@ -225,7 +258,6 @@ function AllViewXyflow() {
     })
 
     const getAllQuery = useGetHistoryGetall();
-
 
 
     const initialized = useRef(false)
@@ -278,39 +310,32 @@ function AllViewXyflow() {
         console.log(JSON.stringify(xfNodes))
     }, [xfNodes]);*/
 
-    useEffect(() => {
+   /* useEffect(() => {
         console.log(JSON.stringify(xfEdges))
-    }, [xfEdges]);
+    }, [xfEdges]);*/
 
-    const rendersCountRef = useRef(0)
-    rendersCountRef.current += 1
     return (
         <div>
-            {rendersCountRef.current}
             <Flex vertical>
                 <div style={{color: "black", backgroundColor: "white"}}>
                     <div style={{height: "70vh", width: "90vw"}}>
-                        <NodeDatasStateManagerContext.Provider value={nodeDatasStateManager}>
-                            <EdgeDatasStateManagerContext.Provider value={edgeDatasStateManager}>
-                                <EditableContext value={isEditable}>
-                                    <ReactFlow
-                                        nodes={xfNodes as XfNode[]}
-                                        edges={xfEdges as XfEdge[]}
-                                        onNodesChange={applyXfNodeChanges}
-                                        onEdgesChange={applyXfEdgeChanges}
-                                        fitView
-                                        nodeTypes={nodeTypesForXyflow}
-                                        edgeTypes={edgeTypes}
-                                        defaultEdgeOptions={defaultEdgeOptions}
-                                        connectionLineComponent={CustomConnectionLine}
-                                        connectionLineStyle={connectionLineStyle}
-                                    >
-                                        <Controls showInteractive={true}/>
-                                        <Background/>
-                                    </ReactFlow>
-                                </EditableContext>
-                            </EdgeDatasStateManagerContext.Provider>
-                        </NodeDatasStateManagerContext.Provider>
+                        <EditableContext value={isEditable}>
+                            <ReactFlow
+                                nodes={xfNodes as XfNode[]}
+                                edges={xfEdges as XfEdge[]}
+                                onNodesChange={applyXfNodeChanges}
+                                onEdgesChange={applyXfEdgeChanges}
+                                fitView
+                                nodeTypes={nodeTypesForXyflow}
+                                edgeTypes={edgeTypes}
+                                defaultEdgeOptions={defaultEdgeOptions}
+                                connectionLineComponent={CustomConnectionLine}
+                                connectionLineStyle={connectionLineStyle}
+                            >
+                                <Controls showInteractive={true}/>
+                                <Background/>
+                            </ReactFlow>
+                        </EditableContext>
                     </div>
                 </div>
                 <div style={{
@@ -325,7 +350,7 @@ function AllViewXyflow() {
                         <div>editable: <Switch onChange={(checked) => {
                             setIsEditable(checked);
                         }} checked={isEditable}/></div>
-                        <Button disabled={!hasChanges || !isEditable}>push changes</Button>
+                        <Button disabled={!graphHasChanges || !isEditable}>push changes</Button>
                     </Space>
                 </div>
                 <div>

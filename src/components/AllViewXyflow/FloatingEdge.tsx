@@ -20,7 +20,7 @@ function FloatingEdge({
                           markerEnd,
                           style
                       }: EdgeProps<XfEdge>) {
-    console.log(`edgeRendering ${thisEdgeId}`)
+    /*console.log(`edgeRendering ${thisEdgeId}`)*/
     const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
 
     const [data, setData] = useState(edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId)/* ?? {
@@ -92,9 +92,6 @@ function FloatingEdge({
         targetY: ty
     }, currentDelta, 300);
 
-    const renderCountRef = useRef(0)
-    renderCountRef.current += 1
-
     return (
         <>
             <BaseEdge
@@ -114,7 +111,6 @@ function FloatingEdge({
                         overflow: "hidden"
                     }}
                 >
-                    {renderCountRef.current}
                     <div style={{
                         position: "relative",
                         minWidth: "50px",
