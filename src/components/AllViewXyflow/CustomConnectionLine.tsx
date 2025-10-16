@@ -8,6 +8,8 @@ function CustomConnectionLine({
                                   toY,
                                   connectionLineStyle
                               }: ConnectionLineComponentProps<XfNode>) {
+    console.log("CustomConnectionLine rendering")
+
     const [edgePath] = getStraightPath({
         sourceX: fromX,
         sourceY: fromY,

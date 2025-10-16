@@ -1,19 +1,10 @@
-import {Handle, type Node, type NodeProps, Position, useConnection} from "@xyflow/react";
+import {Handle, type NodeProps, Position, useConnection} from "@xyflow/react";
 import {Button, Collapse, Flex} from "antd";
-import {type CSSProperties, useContext} from "react";
-import {EditableContext, MarkNodeForDeleteContext} from "./Contexts.ts";
-
-export type EventNodeData = {
-    id: string,
-    timeFrom: Date,
-    timeTo: Date,
-    title: string,
-    description: string,
-    label: string,
-    keywords: string[],
-    isMarkedForDelete: boolean,
-};
-export type EventNodeType = Node<EventNodeData>;
+import {type CSSProperties, useContext, useMemo, useRef, useState} from "react";
+import {EditableContext} from "./Contexts.ts";
+import {NodeDatasStateManagerContext} from "./AllViewXyflow.tsx";
+import {useKeyedEventHandling} from "../../lib/event/useKeyedEventHandling.ts";
+import type {XfNode} from "./XyFlowTypeAliases.ts";
 
 const sourceHandleStyle: CSSProperties = {
     width: "100%",
@@ -41,14 +32,32 @@ const targetHandleStyle: CSSProperties = {
     zIndex: "100"
 }
 
-export function EventNode({data, id}: NodeProps<EventNodeType>) {
+/*export const EventNode = memo(EventNode1, (prevProps, nextProps)=> {
+    return prevProps.id != nextProps.id
+})*/
+
+export function EventNode({id: thisNodeId}: NodeProps<XfNode>) {
+    const nodeDatasStateContext = useContext(NodeDatasStateManagerContext)
+    const initialData = useMemo(() =>
+        nodeDatasStateContext.allNodeDatasMap.get(thisNodeId), [nodeDatasStateContext, thisNodeId]
+    )
+
+    const [data, setData] = useState(initialData)
+
+    useKeyedEventHandling(nodeDatasStateContext.nodesStateEvents.nodeDataUpdatedEvent, thisNodeId, ({newNodeData})=> {
+        setData(newNodeData)
+    })
 
     const connection = useConnection();
 
-    const isTarget = connection.inProgress && connection.fromNode.id !== id;
+    const isTarget = connection.inProgress && connection.fromNode.id !== thisNodeId;
 
     const isEditable = useContext(EditableContext)
-    const markNodeForDeleteContextValue = useContext(MarkNodeForDeleteContext)
+
+    if(!data)
+    {
+        return <>no data for node id {thisNodeId}</>
+    }
 
     return (
         <div>
@@ -65,10 +74,10 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
             }}>
                 <div style={{
                     position: "absolute",
-                    backgroundColor: data.isMarkedForDelete ? "red" : "white",
+                    backgroundColor: data.isExplicitlyMarkedForDelete ? "red" : "white",
                     width: "100%",
                     height: "100%",
-                    opacity: data.isMarkedForDelete ? "0.1" : "0.5",
+                    opacity: data.isExplicitlyMarkedForDelete ? "0.1" : "0.5",
                     zIndex: -1,
                     borderRadius: 10
                 }}/>
@@ -77,26 +86,21 @@ export function EventNode({data, id}: NodeProps<EventNodeType>) {
                         <Collapse items={[{
                             label: (
                                 <Flex vertical>
-                                    <div>title: {data.title}</div>
-                                    <div style={{fontSize: 11}}>id: {id}</div>
+                                    <div>title: {data.currentData.title}</div>
+                                    <div style={{fontSize: 11}}>id: {thisNodeId}</div>
                                 </Flex>
                             ),
                             children: (
                                 <Flex vertical>
-                                    <div>description: {data.description}</div>
-                                    <div>label: {data.label}</div>
-                                    <div>keywords: [{data.keywords.join(', ')}]</div>
-                                    <div>timeFrom: {data.timeFrom.toISOString()}</div>
-                                    <div>timeTo: {data.timeTo.toISOString()}</div>
+                                    <div>description: {data.currentData.description}</div>
+                                    <div>label: {data.currentData.label}</div>
+                                    <div>keywords: [{data.currentData.keywords.join(', ')}]</div>
+                                    <div>timeFrom: {data.currentData.timeFrom.toISOString()}</div>
+                                    <div>timeTo: {data.currentData.timeTo.toISOString()}</div>
                                     <Button disabled={!isEditable} onClick={() => {
-                                        if(!data.isMarkedForDelete) {
-                                            markNodeForDeleteContextValue.markNodeForDelete(data.id)
-                                        }
-                                        else{
-                                            markNodeForDeleteContextValue.undoMarkNodeForDelete(data.id)
-                                        }
+                                        nodeDatasStateContext.markNodeForDelete(thisNodeId, !data.isExplicitlyMarkedForDelete)
                                     }}>
-                                        {data.isMarkedForDelete ? "undo delete" : "delete"}
+                                        {data.isExplicitlyMarkedForDelete ? "undo delete" : "delete"}
                                     </Button>
                                 </Flex>
                             )

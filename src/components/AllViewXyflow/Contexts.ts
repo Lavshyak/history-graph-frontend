@@ -2,6 +2,7 @@ import {createContext} from "react";
 
 export const EditableContext = createContext(false);
 
+/*
 export const MarkEdgeForDeleteContext = createContext<{
     markEdgeForDelete: (edgeId: string) => void,
     undoMarkEdgeForDelete: (edgeId: string) => void
@@ -20,4 +21,4 @@ export const MarkNodeForDeleteContext = createContext<{
     },
     undoMarkNodeForDelete: () => {
     }
-});
+});*/

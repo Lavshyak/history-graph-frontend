@@ -1,6 +1,5 @@
 import {
     BaseEdge,
-    type Edge,
     EdgeLabelRenderer,
     type EdgeProps,
     useInternalNode, useReactFlow,
@@ -8,44 +7,68 @@ import {
 import {getEdgeParams} from './utils.js';
 import {Button, Collapse, Flex} from 'antd';
 import {getSpecialPath} from "./GetSpecialPath.ts";
-import {useContext, useMemo} from "react";
-import type {XfNode} from "./XyFlowTypeAliases.ts";
-import {EditableContext, MarkEdgeForDeleteContext} from "./Contexts.ts";
-import {type EdgeData} from "../../types/EdgeData.ts";
-
-
-export type FloatingEdgeDataType = {} & Record<string, unknown> & EdgeData
-
-export type FloatingEdgeType = Edge<EdgeData>
+import {useContext, useMemo, useRef, useState} from "react";
+import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
+import {EditableContext} from "./Contexts.ts";
+import {EdgeDatasStateManagerContext} from "./AllViewXyflow.tsx";
+import {useKeyedEventHandling} from "../../lib/event/useKeyedEventHandling.ts";
 
 function FloatingEdge({
-                          id,
+                          id: thisEdgeId,
                           source,
                           target,
                           markerEnd,
-                          style,
-                          data
-                      }: EdgeProps<FloatingEdgeType>) {
-    if (data == null) {
-        throw new Error(`data is null in edge id ${id}`);
+                          style
+                      }: EdgeProps<XfEdge>) {
+    /*console.log(`edgeRendering ${thisEdgeId}`)*/
+    const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
+
+    const [data, setData] = useState(edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId)/* ?? {
+        isExplicitlyMarkedForDelete: false,
+        markedForDeleteBecauseNodes: [],
+        sourceData: {
+            id: thisEdgeId,
+            label: 'not initialized',
+            toId: 'notInitialized',
+            fromId: 'notInitialized',
+        },
+        updatedData: undefined,
+        currentData: {
+            id: thisEdgeId,
+            label: 'not initialized',
+            toId: 'notInitialized',
+            fromId: 'notInitialized',
+        },
+        sourceOrCreated: "source"
+    }*/)
+
+    useKeyedEventHandling(edgeDatasStateManagerContext.edgesStateEvents.edgeDataUpdatedEvent, thisEdgeId,
+        ({newEdgeData}) => {
+            setData(newEdgeData)
+        })
+
+    if(!data)
+    {
+        throw new Error("no data")
     }
+
+    const isGenerallyMarkedForDelete = data.isExplicitlyMarkedForDelete || data.markedForDeleteBecauseNodes.length > 0
 
     const currentData = data.currentData;
 
     const sourceNode = useInternalNode(source);
     const targetNode = useInternalNode(target);
     const isEditable = useContext(EditableContext)
-    const markEdgeForDeleteContextValue = useContext(MarkEdgeForDeleteContext)
 
     const {sx, sy, tx, ty} = getEdgeParams(sourceNode, targetNode);
 
-    const {getEdges, updateEdge} = useReactFlow<XfNode, FloatingEdgeType>()
+    const {getEdges, updateEdge} = useReactFlow<XfNode, XfEdge>()
 
     const {currentDelta} = useMemo(() => {
         const multipleEdges = getEdges().filter(e =>
             (e.source === source && e.target === target)
             || (e.source === target && e.target === source)
-        ).map(e => e.data!.currentData.id)
+        ).map(e => e.id)
             .sort((a, b) => a.localeCompare(b))
             .map((id) => ({edgeId: id, delta: 0}));
 
@@ -72,11 +95,11 @@ function FloatingEdge({
     return (
         <>
             <BaseEdge
-                id={id}
+                id={thisEdgeId}
                 className="react-flow__edge-path"
                 path={path}
                 markerEnd={markerEnd}
-                style={{...style, stroke: data.tech.isGenerallyMarkedForDelete ? "#ff000044" : "#b1b1b7"}}
+                style={{...style, stroke: isGenerallyMarkedForDelete ? "#ff000044" : "#b1b1b7"}}
             />
             <EdgeLabelRenderer>
                 <div
@@ -94,10 +117,10 @@ function FloatingEdge({
                     }}>
                         <div style={{
                             position: "absolute",
-                            backgroundColor: data.tech.isGenerallyMarkedForDelete ? "red" : "white",
+                            backgroundColor: isGenerallyMarkedForDelete ? "red" : "white",
                             width: "100%",
                             height: "100%",
-                            opacity: data.tech.isGenerallyMarkedForDelete ? "0.1" : "0.5",
+                            opacity: isGenerallyMarkedForDelete ? "0.1" : "0.5",
                             zIndex: -1,
                             borderRadius: 10
                         }}/>
@@ -114,13 +137,9 @@ function FloatingEdge({
                                         background: "transparent"
                                     }}>
                                         <Button disabled={!isEditable} onClick={() => {
-                                            if (!data.tech.isExplicitlyMarkedForDelete) {
-                                                markEdgeForDeleteContextValue.markEdgeForDelete(currentData.id)
-                                            } else {
-                                                markEdgeForDeleteContextValue.undoMarkEdgeForDelete(currentData.id)
-                                            }
+                                            edgeDatasStateManagerContext.markEdgeForDelete(thisEdgeId, !data.isExplicitlyMarkedForDelete)
                                         }}>
-                                            {data.tech.isExplicitlyMarkedForDelete ? "undo delete" : "delete"}
+                                            {data.isExplicitlyMarkedForDelete ? "undo delete" : "delete"}
                                         </Button>
                                     </Flex>
                                 )
