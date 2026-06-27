@@ -10,20 +10,25 @@ export function GraphDataHasChangesContextWrapper({children}: { children: ReactN
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
 
-    useEventHandling(nodeDatasStateManager.nodesStateEvents.nodeDataUpdatedEvent, () => {
-        if (nodeDatasStateManager.updatedNodeDataIdsSet.size > 0 || edgeDatasStateManager.updatedEdgeDataIdsSet.size > 0) {
-            setHasChanges(true)
-        } else {
-            setHasChanges(false)
-        }
+    useEventHandling(nodeDatasStateManager.nodesStateEvents.nodeDataUpdatedEvent, ({oldNodeData, newNodeData}) => {
+        setHasChanges(true)
     })
-    useEventHandling(edgeDatasStateManager.edgesStateEvents.edgeDataUpdatedEvent, () => {
-        if (nodeDatasStateManager.updatedNodeDataIdsSet.size > 0 || edgeDatasStateManager.updatedEdgeDataIdsSet.size > 0) {
-            setHasChanges(true)
-        } else {
-            setHasChanges(false)
-        }
+    useEventHandling(nodeDatasStateManager.nodesStateEvents.nodeAddedEvent, ({nodeDataId, nodeData}) => {
+        if (nodeData.sourceOrCreated == "source")
+            return;
+        setHasChanges(true)
     })
+
+    useEventHandling(edgeDatasStateManager.edgesStateEvents.edgeDataUpdatedEvent, ({oldEdgeData, newEdgeData}) => {
+        setHasChanges(true)
+    })
+    useEventHandling(edgeDatasStateManager.edgesStateEvents.edgeAddedEvent, ({nodeDataId, nodeData}) => {
+        if (nodeData.sourceOrCreated == "source")
+            return;
+        setHasChanges(true)
+    })
+
+    console.log("GraphDataHasChangesContextWrapper:hasChanges=" + hasChanges)
 
     return (<GraphDataHasChangesContext.Provider value={hasChanges}>
         {children}

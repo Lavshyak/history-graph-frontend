@@ -14,7 +14,7 @@ import {
     type EdgeChange,
     MarkerType,
     type NodeChange,
-    ReactFlow,
+    ReactFlow, ReactFlowProvider, useReactFlow, useViewport, type Viewport,
     type XYPosition
 } from "@xyflow/react";
 import FloatingEdge from "./FloatingEdge.tsx";
@@ -28,6 +28,7 @@ import {NodeDatasStateManagerContext} from "../../contexts/NodeDatasStateManager
 import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
 import {GraphDataHasChangesContext} from "../../contexts/GraphDataHasChangesContext.ts";
 import {EditableContext} from "./Contexts.ts";
+import {node} from "globals";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -49,9 +50,33 @@ const defaultEdgeOptions = {
     },
 };
 
-function AllViewXyflow() {
-    const performanceMark = performance.mark("AllViewXyflow")
+export function ContextMenu({ id, top, left, right, bottom, onMouseLeave, xMenu, yMenu, xSpawn, ySpawn, ...props }) {
+    const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 
+    return (
+        <div  onMouseLeave={onMouseLeave} style={{ zIndex:1000, top, left, right, bottom, position: "absolute", backgroundColor: "chocolate" }} className="context-menu" {...props}>
+            <p style={{ margin: '0.5em' }}>
+                <small>node: {id}</small>
+            </p>
+            <button onClick={()=>{
+                console.log("create, advPos ", {x:xSpawn, y:ySpawn})
+                nodeDatasStateManager.addNodeFromCreated({
+                    id: crypto.randomUUID(),
+                    label: 'default',
+                    description: '',
+                    keywords: [],
+                    timeFrom: new Date(),
+                    timeTo: new Date(),
+                    title: ''
+                }, {x:xSpawn, y:ySpawn})
+                onMouseLeave()
+            }}>create</button>
+            <button>delete</button>
+        </div>
+    );
+}
+
+function AllViewXyflow() {
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
     const graphHasChanges = useContext(GraphDataHasChangesContext);
@@ -69,7 +94,29 @@ function AllViewXyflow() {
     }>((set, get) => ({
         xfNodes: [],
         addXfNode(nodeId: NodeDataIdType) {
-            const position = recommendedNodePositionsOnAdd.get(nodeId) ?? {x: 0, y: 0}
+            let position = recommendedNodePositionsOnAdd.get(nodeId)
+            if(!position){
+                console.log(98)
+                const nodeData = nodeDatasStateManager.allNodeDatasMap.get(nodeId)
+                console.log('nodeData ', nodeData)
+                if(nodeData){
+                    if(nodeData.advisoryPosition){
+                        position = {x: 0, y: 0}
+                        if(nodeData.advisoryPosition.x){
+                            position.x = nodeData.advisoryPosition.x
+                        }
+                        if(nodeData.advisoryPosition.y){
+                            position.y = nodeData.advisoryPosition.y
+                        }
+                    }
+                }
+            }
+            if(!position){
+                console.log(114)
+                position = {x: 0, y: 0}
+            }
+
+            console.log('position ', position)
 
             set((state) => ({
                 xfNodes: [...state.xfNodes, {id: nodeId, data: {}, position: position, type: 'EventNode'}],
@@ -185,15 +232,15 @@ function AllViewXyflow() {
         console.log(JSON.stringify(xfNodes))
     }, [xfNodes]);*/
 
-   /* useEffect(() => {
-        console.log(JSON.stringify(xfEdges))
-    }, [xfEdges]);*/
+    /* useEffect(() => {
+         console.log(JSON.stringify(xfEdges))
+     }, [xfEdges]);*/
 
     const frameRef = useRef<number | null>(null);
 
-    const onNodesChangeRaf = useCallback((changes : NodeChange<XfNode>[]) => {
+    const onNodesChangeRaf = useCallback((changes: NodeChange<XfNode>[]) => {
         const positionChanges = changes.filter(change => change.type === "position");
-        if(positionChanges.length > 0) {
+        if (positionChanges.length > 0) {
             if (frameRef.current === null) {
                 frameRef.current = requestAnimationFrame(() => {
                     applyXfNodeChanges(positionChanges);
@@ -209,54 +256,98 @@ function AllViewXyflow() {
 
     }, [applyXfNodeChanges]);
 
+    const reactFlowInstance = useReactFlow()
+    const [viewport, setViewport] = useState<Viewport>({x:0, y: 0, zoom: 1});
+    const ref = useRef<HTMLDivElement>(null);
+    const [menu, setMenu] = useState(null);
+    const onNodeContextMenu = useCallback(
+        (event : (React.MouseEvent | MouseEvent)) => {
+            // Prevent native context menu from showing
+            event.preventDefault();
+            console.log('onNodeContextMenu event ', event)
+
+            // Calculate position of the context menu. We want to make sure it
+            // doesn't get positioned off-screen.
+            const pane = ref.current.getBoundingClientRect();
+            console.log('onNodeContextMenu ref.current.getBoundingClientRect() ', ref.current.getBoundingClientRect())
+            console.log('onNodeContextMenu viewport ', viewport)
+
+            const flowXY = reactFlowInstance.screenToFlowPosition({x: event.pageX, y: event.pageY});
+            setMenu({
+                id: "contextMenu1",
+                top: event.clientY < viewport.y - 200 && event.clientY,
+                left: event.clientX < viewport.x - 200 && event.clientX,
+                right: event.clientX >= viewport.y - 200 && pane.width - event.clientX,
+                bottom: event.clientY >= viewport.x - 200 && pane.height - event.clientY,
+                x: flowXY.x,  //(event.pageX /*- ref.current.getBoundingClientRect().x*/ - ref.current.getBoundingClientRect().width/2 + viewport.x/viewport.zoom),
+                y: flowXY.y,//(event.pageY /*- ref.current.getBoundingClientRect().y*/ - ref.current.getBoundingClientRect().height/2 + viewport.y/viewport.zoom)
+                xSpawn: flowXY.x,
+                ySpawn: flowXY.y
+            });
+        },
+        [setMenu, viewport],
+    );
+    // Close the context menu if it's open whenever the window is clicked.
+    const onPaneClick = useCallback(() => setMenu(null), [setMenu]);
+
     return (
-        <div>
-            <Flex vertical>
-                <div style={{color: "black", backgroundColor: "white"}}>
-                    <div style={{height: "70vh", width: "90vw"}}>
-                        <EditableContext.Provider value={isEditable}>
-                            <ReactFlow
-                                nodes={xfNodes as XfNode[]}
-                                edges={xfEdges as XfEdge[]}
-                                onNodesChange={onNodesChangeRaf}
-                                onEdgesChange={applyXfEdgeChanges}
-                                fitView
-                                nodeTypes={nodeTypesForXyflow}
-                                edgeTypes={edgeTypes}
-                                defaultEdgeOptions={defaultEdgeOptions}
-                                connectionLineComponent={CustomConnectionLine}
-                                connectionLineStyle={connectionLineStyle}
-                            >
-                                <Controls showInteractive={true}/>
-                                <Background/>
-                            </ReactFlow>
-                        </EditableContext.Provider>
+        <div style={{}}>
+            <Flex vertical style={{alignItems: "center"}}>
+                <div style={{alignItems: "stretch"}}>
+                    <div style={{color: "black", backgroundColor: "white", width: '90vw'}}>
+                        <div style={{height: "70vh"}}>
+                            <EditableContext.Provider value={isEditable}>
+
+                                    <ReactFlow
+                                        ref={ref}
+                                        viewport={viewport}
+                                        onViewportChange={(v) => setViewport(v)}
+                                        nodes={xfNodes as XfNode[]}
+                                        edges={xfEdges as XfEdge[]}
+                                        onNodesChange={onNodesChangeRaf}
+                                        onEdgesChange={applyXfEdgeChanges}
+                                        fitView
+                                        nodeTypes={nodeTypesForXyflow}
+                                        edgeTypes={edgeTypes}
+                                        defaultEdgeOptions={defaultEdgeOptions}
+                                        connectionLineComponent={CustomConnectionLine}
+                                        connectionLineStyle={connectionLineStyle}
+                                        onPaneContextMenu={onNodeContextMenu}
+                                        onPaneClick={onPaneClick}
+                                    >
+                                        <Controls showInteractive={true}/>
+                                        <Background/>
+                                        {menu && <ContextMenu onClick={onPaneClick} {...menu} onMouseLeave={()=> setMenu(null)} />}
+                                    </ReactFlow>
+
+                            </EditableContext.Provider>
+                        </div>
                     </div>
+                    <div style={{
+                        backgroundColor: "white",
+                        color: "black",
+                        position: "relative",
+                        left: 0,
+                        borderTop: "1px solid black",
+                        padding: "10px"
+                    }}>
+                        <Space size={50}>
+                            <div>editable: <Switch onChange={(checked) => {
+                                setIsEditable(checked);
+                            }} checked={isEditable}/></div>
+                            <Button disabled={!graphHasChanges || !isEditable}>push changes</Button>
+                        </Space>
+                    </div>
+                    <div>
+                        {JSON.stringify(xfEdges)}
+                    </div>
+                    <Divider style={{borderColor: "green"}}/>
+                    <Divider style={{borderColor: "green"}}/>
+                    <Divider style={{borderColor: "green"}}/>
+                    <button onClick={() => getAllQuery.refetch().then(() => console.log("refetched"))}>
+                        update
+                    </button>
                 </div>
-                <div style={{
-                    backgroundColor: "white",
-                    color: "black",
-                    position: "relative",
-                    left: 0,
-                    borderTop: "1px solid black",
-                    padding: "10px"
-                }}>
-                    <Space size={50}>
-                        <div>editable: <Switch onChange={(checked) => {
-                            setIsEditable(checked);
-                        }} checked={isEditable}/></div>
-                        <Button disabled={!graphHasChanges || !isEditable}>push changes</Button>
-                    </Space>
-                </div>
-                <div>
-                    {JSON.stringify(xfEdges)}
-                </div>
-                <Divider style={{borderColor: "green"}}/>
-                <Divider style={{borderColor: "green"}}/>
-                <Divider style={{borderColor: "green"}}/>
-                <button onClick={() => getAllQuery.refetch().then(() => console.log("refetched"))}>
-                    update
-                </button>
             </Flex>
         </div>
     );

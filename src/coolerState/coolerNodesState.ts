@@ -14,12 +14,12 @@ import {
 
 type NodesStateEvents = {
     nodeDataUpdatedEvent: NormalKeyedListenableEvent<{ oldNodeData: NodeData, newNodeData: NodeData }, NodeDataIdType>
-    nodeAddedEvent: NormalListenableEvent<{ nodeDataId: NodeDataIdType }>
+    nodeAddedEvent: NormalListenableEvent<{ nodeDataId: NodeDataIdType, nodeData: NodeData }>
 }
 
 export type NodeDatasStateManager = {
     addNodeFromSource(nodeSourceData: NodeSourceData): void
-    addNodeFromCreated(nodeSourceData: NodeSourceData): void
+    addNodeFromCreated(nodeSourceData: NodeSourceData, advisoryPosition?: {x?: number; y?: number}): void
     updateNodeData(nodeId: NodeDataIdType, nodeUpdatedDataPart: Partial<NodeUpdatedData>): void
     markNodeForDelete(nodeId: string, isMarkForDelete: boolean): void
 
@@ -27,6 +27,7 @@ export type NodeDatasStateManager = {
     allNodeDatasMap: ReadonlyMap<NodeDataIdType, NodeData>,
     updatedNodeDataIdsSet: ReadonlySet<NodeDataIdType>,
     markedForDeleteNodeDataIdsSet: ReadonlySet<NodeDataIdType>,
+    createdNodeDataIdsSet: ReadonlySet<NodeDataIdType>,
 }
 
 export function createNodeDatasStateManager(): NodeDatasStateManager {
@@ -35,12 +36,13 @@ export function createNodeDatasStateManager(): NodeDatasStateManager {
             oldNodeData: NodeData,
             newNodeData: NodeData
         }, NodeDataIdType>(),
-        nodeAddedEvent: createNormalEvent<{ nodeDataId: NodeDataIdType }>()
+        nodeAddedEvent: createNormalEvent<{ nodeDataId: NodeDataIdType, nodeData: NodeData }>()
     }
 
     const allNodeDatasMap: Map<NodeDataIdType, NodeData> = new Map()
     const updatedNodeDataIdsSet: Set<NodeDataIdType> = new Set<NodeDataIdType>()
     const markedForDeleteNodeDataIdsSet: Set<NodeDataIdType> = new Set<NodeDataIdType>()
+    const createdNodeDataIdsSet: Set<NodeDataIdType> = new Set<NodeDataIdType>()
 
     nodesStateEvents.nodeDataUpdatedEvent.on(({newNodeData}) => {
         if (newNodeData.updatedData !== undefined) {
@@ -54,6 +56,10 @@ export function createNodeDatasStateManager(): NodeDatasStateManager {
         } else {
             markedForDeleteNodeDataIdsSet.delete(newNodeData.currentData.id)
         }
+    })
+
+    nodesStateEvents.nodeAddedEvent.on(({nodeDataId, nodeData})=>{
+        createdNodeDataIdsSet.add(nodeData.currentData.id)
     })
 
     return {
@@ -71,9 +77,9 @@ export function createNodeDatasStateManager(): NodeDatasStateManager {
             }
 
             allNodeDatasMap.set(nodeSourceData.id, newNodeData);
-            nodesStateEvents.nodeAddedEvent.emit({nodeDataId: nodeSourceData.id})
+            nodesStateEvents.nodeAddedEvent.emit({nodeDataId: nodeSourceData.id, nodeData: newNodeData})
         },
-        addNodeFromCreated(nodeSourceData: NodeSourceData){
+        addNodeFromCreated(nodeSourceData: NodeSourceData, advisoryPosition?: {x?: number; y?: number}){
             if (allNodeDatasMap.has(nodeSourceData.id))
                 throw new Error(`Could not add node from nodeSourceData with id ${nodeSourceData.id}: exists`)
 
@@ -83,11 +89,12 @@ export function createNodeDatasStateManager(): NodeDatasStateManager {
                 currentData: calculateNodeCurrentData(nodeSourceData, undefined),
 
                 isExplicitlyMarkedForDelete: false,
-                sourceOrCreated: "created"
+                sourceOrCreated: "created",
+                advisoryPosition: advisoryPosition
             }
 
             allNodeDatasMap.set(nodeSourceData.id, newNodeData);
-            nodesStateEvents.nodeAddedEvent.emit({nodeDataId: nodeSourceData.id})
+            nodesStateEvents.nodeAddedEvent.emit({nodeDataId: nodeSourceData.id, nodeData: newNodeData})
         },
         updateNodeData(nodeId: NodeDataIdType, nodeUpdatedDataPart: Partial<NodeUpdatedData>) {
             const oldNodeData = allNodeDatasMap.get(nodeId)
@@ -136,7 +143,8 @@ export function createNodeDatasStateManager(): NodeDatasStateManager {
         nodesStateEvents: nodesStateEvents as NormalListenableEventsContainer<typeof nodesStateEvents>,
         allNodeDatasMap: allNodeDatasMap as ReadonlyMap<NodeDataIdType, NodeData>,
         updatedNodeDataIdsSet: updatedNodeDataIdsSet,
-        markedForDeleteNodeDataIdsSet: markedForDeleteNodeDataIdsSet
+        markedForDeleteNodeDataIdsSet: markedForDeleteNodeDataIdsSet,
+        createdNodeDataIdsSet: createdNodeDataIdsSet
     }
 }
 

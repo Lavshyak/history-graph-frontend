@@ -29,6 +29,7 @@ export type NodeData = Readonly<{
     isExplicitlyMarkedForDelete: boolean
     //hasDataUpdates: boolean
     sourceOrCreated: "source" | "created"
+    advisoryPosition?: {x?: number; y?: number}
 }>
 
 export function calculateNodeCurrentData(nodeSourceData: NodeSourceData, nodeUpdatedData: Partial<NodeUpdatedData>|undefined) : NodeCurrentData {

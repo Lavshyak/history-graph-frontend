@@ -14,7 +14,7 @@ import type {NodeDataIdType} from "../types/NodeData.ts";
 
 type EdgesStateEvents = {
     edgeDataUpdatedEvent: NormalKeyedListenableEvent<{ oldEdgeData: EdgeData, newEdgeData: EdgeData }, EdgeDataIdType>
-    edgeAddedEvent: NormalListenableEvent<{ edgeDataId: EdgeDataIdType }>
+    edgeAddedEvent: NormalListenableEvent<{ edgeDataId: EdgeDataIdType, edgeData: EdgeData }>
     edgeRemovedEvent: NormalListenableEvent<{ edgeDataId: EdgeDataIdType }>
 }
 
@@ -38,7 +38,7 @@ export function createEdgeDatasStateManager(nodeMarkedForDeleteChangedEvent: Nor
             oldEdgeData: EdgeData,
             newEdgeData: EdgeData
         }, EdgeDataIdType>(),
-        edgeAddedEvent: createNormalEvent<{ edgeDataId: EdgeDataIdType }>(),
+        edgeAddedEvent: createNormalEvent<{ edgeDataId: EdgeDataIdType, edgeData: EdgeData }>(),
         edgeRemovedEvent: createNormalEvent<{ edgeDataId: EdgeDataIdType }>(),
     }
 

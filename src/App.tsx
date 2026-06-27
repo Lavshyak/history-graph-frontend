@@ -4,6 +4,7 @@ import {NodeDatasStateManagerContextWrapper} from "./components/wrappers/NodeDat
 import {EdgeDatasStateManagerContextWrapper} from "./components/wrappers/EdgeDatasStateManagerContextWrapper.tsx";
 import AllViewXyflow from "./components/AllViewXyflow/AllViewXyflow.tsx";
 import {GraphDataHasChangesContextWrapper} from "./components/wrappers/GraphDataHasChangesContextWrapper.tsx";
+import {ReactFlowProvider} from "@xyflow/react";
 
 
 const queryClient = new QueryClient()
@@ -15,7 +16,9 @@ function App() {
             <NodeDatasStateManagerContextWrapper>
                 <EdgeDatasStateManagerContextWrapper>
                     <GraphDataHasChangesContextWrapper>
-                        <AllViewXyflow/>
+                        <ReactFlowProvider>
+                            <AllViewXyflow/>
+                        </ReactFlowProvider>
                     </GraphDataHasChangesContextWrapper>
                 </EdgeDatasStateManagerContextWrapper>
             </NodeDatasStateManagerContextWrapper>
