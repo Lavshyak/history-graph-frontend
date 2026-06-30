@@ -50,11 +50,19 @@ const defaultEdgeOptions = {
     },
 };
 
-export function ContextMenu({ id, top, left, right, bottom, onMouseLeave, xMenu, yMenu, xSpawn, ySpawn, ...props }) {
+type ContextMenuParams = {
+    id : string,
+    top: number,
+    left: number,
+    onMouseLeave?: () => void,
+    xSpawn: number,
+    ySpawn: number,
+}
+export function ContextMenu({ id, top, left, onMouseLeave, xSpawn, ySpawn, ...props } : ContextMenuParams) {
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 
     return (
-        <div  onMouseLeave={onMouseLeave} style={{ zIndex:1000, top, left, right, bottom, position: "absolute", backgroundColor: "chocolate" }} className="context-menu" {...props}>
+        <div onMouseLeave={onMouseLeave} style={{ zIndex:1000, left: left, top: top, transform: "translate(-50%, -50%)", position: "absolute", backgroundColor: "chocolate" }} className="context-menu" {...props}>
             <p style={{ margin: '0.5em' }}>
                 <small>node: {id}</small>
             </p>
@@ -69,9 +77,9 @@ export function ContextMenu({ id, top, left, right, bottom, onMouseLeave, xMenu,
                     timeTo: new Date(),
                     title: ''
                 }, {x:xSpawn, y:ySpawn})
-                onMouseLeave()
+                if(onMouseLeave) onMouseLeave()
             }}>create</button>
-            <button>delete</button>
+            {/*<button>delete</button>*/}
         </div>
     );
 }
@@ -259,7 +267,7 @@ function AllViewXyflow() {
     const reactFlowInstance = useReactFlow()
     const [viewport, setViewport] = useState<Viewport>({x:0, y: 0, zoom: 1});
     const ref = useRef<HTMLDivElement>(null);
-    const [menu, setMenu] = useState(null);
+    const [menu, setMenu] = useState<ContextMenuParams|null>(null);
     const onNodeContextMenu = useCallback(
         (event : (React.MouseEvent | MouseEvent)) => {
             // Prevent native context menu from showing
@@ -273,19 +281,20 @@ function AllViewXyflow() {
             console.log('onNodeContextMenu viewport ', viewport)
 
             const flowXY = reactFlowInstance.screenToFlowPosition({x: event.pageX, y: event.pageY});
-            setMenu({
+            const menu = {
                 id: "contextMenu1",
-                top: event.clientY < viewport.y - 200 && event.clientY,
-                left: event.clientX < viewport.x - 200 && event.clientX,
-                right: event.clientX >= viewport.y - 200 && pane.width - event.clientX,
-                bottom: event.clientY >= viewport.x - 200 && pane.height - event.clientY,
-                x: flowXY.x,  //(event.pageX /*- ref.current.getBoundingClientRect().x*/ - ref.current.getBoundingClientRect().width/2 + viewport.x/viewport.zoom),
-                y: flowXY.y,//(event.pageY /*- ref.current.getBoundingClientRect().y*/ - ref.current.getBoundingClientRect().height/2 + viewport.y/viewport.zoom)
-                xSpawn: flowXY.x,
-                ySpawn: flowXY.y
-            });
+                top: event.pageY-pane.top,
+                left: event.pageX-pane.left,
+                //right:  event.screenX-200,
+                //bottom:  event.screenY-200,
+                //xMenu: event.pageX,  //(event.pageX /*- ref.current.getBoundingClientRect().x*/ - ref.current.getBoundingClientRect().width/2 + viewport.x/viewport.zoom),
+                //yMenu: event.pageY,//(event.pageY /*- ref.current.getBoundingClientRect().y*/ - ref.current.getBoundingClientRect().height/2 + viewport.y/viewport.zoom)
+                xSpawn: flowXY.x - 100,
+                ySpawn: flowXY.y - 100
+            }
+            setMenu(menu);
         },
-        [setMenu, viewport],
+        [reactFlowInstance, viewport],
     );
     // Close the context menu if it's open whenever the window is clicked.
     const onPaneClick = useCallback(() => setMenu(null), [setMenu]);
