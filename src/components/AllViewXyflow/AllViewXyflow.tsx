@@ -309,7 +309,6 @@ function AllViewXyflow() {
                     <div style={{color: "black", backgroundColor: "white", width: '90vw'}}>
                         <div style={{height: "70vh"}}>
                             <EditableContext.Provider value={isEditable}>
-
                                     <ReactFlow
                                         ref={ref}
                                         viewport={viewport}
@@ -329,17 +328,15 @@ function AllViewXyflow() {
                                         onConnectEnd={(event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
                                             console.log('connectionState', connectionState)
                                             if(connectionState.fromNode && connectionState.toNode) {
+                                                /*queueMicrotask(()=> {*/
                                                 edgeDatasStateManager.addEdgeFromCreated({
                                                     id: crypto.randomUUID(),
                                                     label: 'not defined',
                                                     fromId: connectionState.fromNode.id,
                                                     toId: connectionState.toNode.id
                                                 })
-                                                connectionState.fromNode.connectable = false
+                                            /*});*/
                                             }
-
-                                            /*queueMicrotask(()=> )*/
-
                                         }}
                                         connectOnClick={false}
                                     >

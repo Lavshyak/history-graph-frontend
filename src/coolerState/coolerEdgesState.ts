@@ -114,7 +114,7 @@ export function createEdgeDatasStateManager(nodeMarkedForDeleteChangedEvent: Nor
                 }
             })
 
-            edgesStateEvents.edgeAddedEvent.emit({edgeDataId: edgeSourceData.id})
+            edgesStateEvents.edgeAddedEvent.emit({edgeDataId: edgeSourceData.id, edgeData: newEdgeData})
         },
         addEdgeFromCreated(edgeSourceData: EdgeSourceData){
             if (allEdgeDatasMap.has(edgeSourceData.id))
@@ -143,7 +143,7 @@ export function createEdgeDatasStateManager(nodeMarkedForDeleteChangedEvent: Nor
                 }
             })
 
-            edgesStateEvents.edgeAddedEvent.emit({edgeDataId: edgeSourceData.id})
+            edgesStateEvents.edgeAddedEvent.emit({edgeDataId: edgeSourceData.id, edgeData: newEdgeData})
         },
         updateEdgeData(edgeId: EdgeDataIdType, edgeUpdatedDataPart: Partial<EdgeUpdatedData>) {
             const oldEdgeData = allEdgeDatasMap.get(edgeId)
