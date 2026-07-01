@@ -11,7 +11,7 @@ import {
     applyNodeChanges,
     Background,
     Controls,
-    type EdgeChange,
+    type EdgeChange, type FinalConnectionState,
     MarkerType,
     type NodeChange,
     ReactFlow, ReactFlowProvider, useReactFlow, useViewport, type Viewport,
@@ -60,13 +60,14 @@ type ContextMenuParams = {
 }
 export function ContextMenu({ id, top, left, onMouseLeave, xSpawn, ySpawn, ...props } : ContextMenuParams) {
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
+    const isEditable = useContext(EditableContext)
 
     return (
         <div onMouseLeave={onMouseLeave} style={{ zIndex:1000, left: left, top: top, transform: "translate(-50%, -50%)", position: "absolute", backgroundColor: "chocolate" }} className="context-menu" {...props}>
             <p style={{ margin: '0.5em' }}>
                 <small>node: {id}</small>
             </p>
-            <button onClick={()=>{
+            <button disabled={!isEditable} onClick={()=>{
                 console.log("create, advPos ", {x:xSpawn, y:ySpawn})
                 nodeDatasStateManager.addNodeFromCreated({
                     id: crypto.randomUUID(),
@@ -85,6 +86,7 @@ export function ContextMenu({ id, top, left, onMouseLeave, xSpawn, ySpawn, ...pr
 }
 
 function AllViewXyflow() {
+    console.log("AllViewXyflow rendering")
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
     const graphHasChanges = useContext(GraphDataHasChangesContext);
@@ -160,12 +162,13 @@ function AllViewXyflow() {
                 const edgeData = edgeDatasStateManager.allEdgeDatasMap.get(edgeId)
                 if (!edgeData) throw new Error(`edgeData not found for edgeId ${edgeId}`)
                 return {
+                    ...state,
                     xfEdges: [...state.xfEdges, {
                         id: edgeId,
                         source: edgeData.sourceData.fromId,
                         target: edgeData.sourceData.toId,
                         type: 'FloatingEdge',
-                    }],
+                    }]
                 }
             })
         },
@@ -323,6 +326,22 @@ function AllViewXyflow() {
                                         connectionLineStyle={connectionLineStyle}
                                         onPaneContextMenu={onNodeContextMenu}
                                         onPaneClick={onPaneClick}
+                                        onConnectEnd={(event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
+                                            console.log('connectionState', connectionState)
+                                            if(connectionState.fromNode && connectionState.toNode) {
+                                                edgeDatasStateManager.addEdgeFromCreated({
+                                                    id: crypto.randomUUID(),
+                                                    label: 'not defined',
+                                                    fromId: connectionState.fromNode.id,
+                                                    toId: connectionState.toNode.id
+                                                })
+                                                connectionState.fromNode.connectable = false
+                                            }
+
+                                            /*queueMicrotask(()=> )*/
+
+                                        }}
+                                        connectOnClick={false}
                                     >
                                         <Controls showInteractive={true}/>
                                         <Background/>

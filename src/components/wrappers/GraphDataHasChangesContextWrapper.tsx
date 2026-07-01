@@ -22,8 +22,8 @@ export function GraphDataHasChangesContextWrapper({children}: { children: ReactN
     useEventHandling(edgeDatasStateManager.edgesStateEvents.edgeDataUpdatedEvent, ({oldEdgeData, newEdgeData}) => {
         setHasChanges(true)
     })
-    useEventHandling(edgeDatasStateManager.edgesStateEvents.edgeAddedEvent, ({nodeDataId, nodeData}) => {
-        if (nodeData.sourceOrCreated == "source")
+    useEventHandling(edgeDatasStateManager.edgesStateEvents.edgeAddedEvent, ({edgeDataId, edgeData}) => {
+        if (edgeData.sourceOrCreated == "source")
             return;
         setHasChanges(true)
     })

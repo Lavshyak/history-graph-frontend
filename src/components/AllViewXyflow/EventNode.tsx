@@ -5,6 +5,7 @@ import {EditableContext} from "./Contexts.ts";
 import {useKeyedEventHandling} from "../../hooks/useKeyedEventHandling.ts";
 import type {XfNode} from "./XyFlowTypeAliases.ts";
 import {NodeDatasStateManagerContext} from "../../contexts/NodeDatasStateManagerContext.ts";
+import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
 
 const sourceHandleStyle: CSSProperties = {
     width: "100%",
@@ -44,7 +45,7 @@ export function EventNode({id: thisNodeId}: NodeProps<XfNode>) {
 
     const [data, setData] = useState(initialData)
 
-    useKeyedEventHandling(nodeDatasStateContext.nodesStateEvents.nodeDataUpdatedEvent, thisNodeId, ({newNodeData})=> {
+    useKeyedEventHandling(nodeDatasStateContext.nodesStateEvents.nodeDataUpdatedEvent, thisNodeId, ({newNodeData}) => {
         setData(newNodeData)
     })
 
@@ -119,6 +120,8 @@ export function EventNode({id: thisNodeId}: NodeProps<XfNode>) {
                                     style={sourceHandleStyle}
                                     position={Position.Top}
                                     type="source"
+                                    /*isConnectableStart={true}*/
+
                                 />
                             )}
                         </div>
