@@ -29,6 +29,7 @@ import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManager
 import {GraphDataHasChangesContext} from "../../contexts/GraphDataHasChangesContext.ts";
 import {EditableContext} from "./Contexts.ts";
 import {node} from "globals";
+import {ForceRerenderContext} from "../../contexts/ForceRerenderContext.ts";
 
 const nodeTypesForXyflow = {
     EventNode: EventNode,
@@ -62,6 +63,7 @@ export function ContextMenu({ id, top, left, onMouseLeave, xSpawn, ySpawn, ...pr
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const isEditable = useContext(EditableContext)
 
+
     return (
         <div onMouseLeave={onMouseLeave} style={{ zIndex:1000, left: left, top: top, transform: "translate(-50%, -50%)", position: "absolute", backgroundColor: "chocolate" }} className="context-menu" {...props}>
             <p style={{ margin: '0.5em' }}>
@@ -90,6 +92,7 @@ function AllViewXyflow() {
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
     const graphHasChanges = useContext(GraphDataHasChangesContext);
+    const {forceRerender} = useContext(ForceRerenderContext)
 
     const [isEditable, setIsEditable] = useState<boolean>(true);
 
@@ -371,6 +374,9 @@ function AllViewXyflow() {
                     <Divider style={{borderColor: "green"}}/>
                     <button onClick={() => getAllQuery.refetch().then(() => console.log("refetched"))}>
                         update
+                    </button>
+                    <button onClick={()=>forceRerender()}>
+                        force rerender
                     </button>
                 </div>
             </Flex>

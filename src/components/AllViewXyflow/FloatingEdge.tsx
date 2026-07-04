@@ -12,6 +12,7 @@ import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
 import {EditableContext} from "./Contexts.ts";
 import {useKeyedEventHandling} from "../../hooks/useKeyedEventHandling.ts";
 import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
+import {ForceRerenderContext} from "../../contexts/ForceRerenderContext.ts";
 
 function FloatingEdge({
                           id: thisEdgeId,
@@ -20,8 +21,9 @@ function FloatingEdge({
                           markerEnd,
                           style
                       }: EdgeProps<XfEdge>) {
-    /*console.log(`edgeRendering ${thisEdgeId}`)*/
+    console.log(`edgeRendering ${thisEdgeId}`)
     const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
+    const {forcedRerenderValue} = useContext(ForceRerenderContext)
 
     const [data, setData] = useState(edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId)/* ?? {
         isExplicitlyMarkedForDelete: false,
@@ -60,7 +62,7 @@ function FloatingEdge({
     const targetNode = useInternalNode(target);
     const isEditable = useContext(EditableContext)
 
-    const {sx, sy, tx, ty} = getEdgeParams(sourceNode, targetNode);
+
 
     const {getEdges} = useReactFlow<XfNode, XfEdge>()
 
@@ -73,18 +75,25 @@ function FloatingEdge({
             .map((id) => ({edgeId: id, delta: 0}));
 
         const middleIdx = Math.floor(multipleEdges.length / 2)
-        for (let i = 0; i < middleIdx; i++) {
-            multipleEdges[i].delta = i - middleIdx;
+        let i1 = 0;
+        for (let i = 0; i <= middleIdx; i++) {
+            multipleEdges[i].delta = i1--;
         }
+        let i2 = 1;
         for (let i = middleIdx + 1; i < multipleEdges.length; i++) {
-            multipleEdges[i].delta = i - middleIdx;
+            multipleEdges[i].delta = i2++;
         }
 
         const currentDelta = multipleEdges.find(e => e.edgeId === currentData.id)!.delta
-
         return {multipleEdges, currentDelta};
-    }, [currentData.id, getEdges, source, target]);
+    }, [currentData.id, getEdges, getEdges().length, source, target, forcedRerenderValue]);
 
+    const {sx, sy, tx, ty} = (()=>{
+        // без сортировки связи например с currentDelta 1 и -1 могли накладываться друг на друга, если ведут в разные стороны
+        // наверно какие-то математические приколы
+        const sorted = [sourceNode,targetNode].sort((a,b)=>a?.id.localeCompare(b?.id))
+        return getEdgeParams(sorted[0], sorted[1]);
+    })()
     const {path, labelX, labelY} = getSpecialPath({
         sourceX: sx,
         sourceY: sy,
@@ -128,6 +137,8 @@ function FloatingEdge({
                             items={[{
                                 label: (
                                     <Flex vertical>
+                                        <div>{currentDelta}</div>
+                                        <div>{path}</div>
                                         <div>{currentData.label}</div>
                                         <div>{currentData.id}</div>
                                     </Flex>
