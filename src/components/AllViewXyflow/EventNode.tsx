@@ -75,7 +75,7 @@ export function EventNode({id: thisNodeId}: NodeProps<XfNode>) {
             }}>
                 <div style={{
                     position: "absolute",
-                    backgroundColor: data.isExplicitlyMarkedForDelete ? "red" : "white",
+                    backgroundColor: data.isExplicitlyMarkedForDelete ? "red" : data.sourceOrCreated == "created" ? "green" : "white",
                     width: "100%",
                     height: "100%",
                     opacity: data.isExplicitlyMarkedForDelete ? "0.1" : "0.5",
@@ -121,7 +121,7 @@ export function EventNode({id: thisNodeId}: NodeProps<XfNode>) {
                                     position={Position.Top}
                                     type="source"
                                     /*isConnectableStart={true}*/
-
+                                    isConnectableStart={isEditable}
                                 />
                             )}
                         </div>

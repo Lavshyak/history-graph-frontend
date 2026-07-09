@@ -101,6 +101,12 @@ function FloatingEdge({
         targetY: ty
     }, currentDelta, 300);
 
+    const strokeColor = (()=>{
+        if(isGenerallyMarkedForDelete) return "#ff000044";
+        if(data.sourceOrCreated == "created") return  "#328f4b";
+        return "#b1b1b7";
+    })();
+
     return (
         <>
             <BaseEdge
@@ -108,7 +114,7 @@ function FloatingEdge({
                 className="react-flow__edge-path"
                 path={path}
                 markerEnd={markerEnd}
-                style={{...style, stroke: isGenerallyMarkedForDelete ? "#ff000044" : "#b1b1b7"}}
+                style={{...style, stroke: strokeColor}}
             />
             <EdgeLabelRenderer>
                 <div

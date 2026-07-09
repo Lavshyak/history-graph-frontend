@@ -305,6 +305,10 @@ function AllViewXyflow() {
     // Close the context menu if it's open whenever the window is clicked.
     const onPaneClick = useCallback(() => setMenu(null), [setMenu]);
 
+//    const s = [...nodeDatasStateManager.createdNodeDataIdsSet].join(", ")
+//
+//    nodeDatasStateManager.updatedNodeDataIdsSet
+
     return (
         <div style={{}}>
             <Flex vertical style={{alignItems: "center"}}>
