@@ -1,6 +1,11 @@
 import {createContext} from "react";
+import type {EdgeLabelLayoutEntry} from "./edgeLabelLayout.ts";
 
 export const EditableContext = createContext(false);
+
+export const EdgeLabelLayoutContext = createContext<ReadonlyMap<string, EdgeLabelLayoutEntry>>(
+    new Map(),
+);
 
 /*
 export const MarkEdgeForDeleteContext = createContext<{

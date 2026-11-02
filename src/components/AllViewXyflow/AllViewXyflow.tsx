@@ -28,6 +28,7 @@ import {NodeDatasStateManagerContext} from "../../contexts/NodeDatasStateManager
 import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
 import {GraphDataHasChangesContext} from "../../contexts/GraphDataHasChangesContext.ts";
 import {EditableContext} from "./Contexts.ts";
+import {EdgeLabelLayoutProvider} from "./EdgeLabelLayoutProvider.tsx";
 import {node} from "globals";
 import {ForceRerenderContext} from "../../contexts/ForceRerenderContext.ts";
 
@@ -316,6 +317,7 @@ function AllViewXyflow() {
                     <div style={{color: "black", backgroundColor: "white", width: '90vw'}}>
                         <div style={{height: "70vh"}}>
                             <EditableContext.Provider value={isEditable}>
+                                <EdgeLabelLayoutProvider>
                                     <ReactFlow
                                         ref={ref}
                                         viewport={viewport}
@@ -351,6 +353,7 @@ function AllViewXyflow() {
                                         <Background/>
                                         {menu && <ContextMenu onClick={onPaneClick} {...menu} onMouseLeave={()=> setMenu(null)} />}
                                     </ReactFlow>
+                                </EdgeLabelLayoutProvider>
 
                             </EditableContext.Provider>
                         </div>

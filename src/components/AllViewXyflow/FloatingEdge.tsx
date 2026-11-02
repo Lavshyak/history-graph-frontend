@@ -2,17 +2,16 @@ import {
     BaseEdge,
     EdgeLabelRenderer,
     type EdgeProps,
-    useInternalNode, useReactFlow,
+    useInternalNode,
 } from '@xyflow/react';
-import {getEdgeParams} from './utils.js';
+import {getEdgeParams} from './utils.ts';
 import {Button, Collapse, Flex} from 'antd';
 import {getSpecialPath} from "./GetSpecialPath.ts";
-import {useContext, useMemo, useState} from "react";
-import type {XfEdge, XfNode} from "./XyFlowTypeAliases.ts";
-import {EditableContext} from "./Contexts.ts";
+import {useContext, useState} from "react";
+import type {XfEdge} from "./XyFlowTypeAliases.ts";
+import {EditableContext, EdgeLabelLayoutContext} from "./Contexts.ts";
 import {useKeyedEventHandling} from "../../hooks/useKeyedEventHandling.ts";
 import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
-import {ForceRerenderContext} from "../../contexts/ForceRerenderContext.ts";
 
 function FloatingEdge({
                           id: thisEdgeId,
@@ -23,7 +22,6 @@ function FloatingEdge({
                       }: EdgeProps<XfEdge>) {
     console.log(`edgeRendering ${thisEdgeId}`)
     const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
-    const {forcedRerenderValue} = useContext(ForceRerenderContext)
 
     const [data, setData] = useState(edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId)/* ?? {
         isExplicitlyMarkedForDelete: false,
@@ -61,32 +59,12 @@ function FloatingEdge({
     const sourceNode = useInternalNode(source);
     const targetNode = useInternalNode(target);
     const isEditable = useContext(EditableContext)
+    const edgeLabelLayout = useContext(EdgeLabelLayoutContext)
 
-
-
-    const {getEdges} = useReactFlow<XfNode, XfEdge>()
-
-    const {currentDelta} = useMemo(() => {
-        const multipleEdges = getEdges().filter(e =>
-            (e.source === source && e.target === target)
-            || (e.source === target && e.target === source)
-        ).map(e => e.id)
-            .sort((a, b) => a.localeCompare(b))
-            .map((id) => ({edgeId: id, delta: 0}));
-
-        const middleIdx = Math.floor(multipleEdges.length / 2)
-        let i1 = 0;
-        for (let i = 0; i <= middleIdx; i++) {
-            multipleEdges[i].delta = i1--;
-        }
-        let i2 = 1;
-        for (let i = middleIdx + 1; i < multipleEdges.length; i++) {
-            multipleEdges[i].delta = i2++;
-        }
-
-        const currentDelta = multipleEdges.find(e => e.edgeId === currentData.id)!.delta
-        return {multipleEdges, currentDelta};
-    }, [currentData.id, getEdges, getEdges().length, source, target, forcedRerenderValue]);
+    const layoutEntry = edgeLabelLayout.get(thisEdgeId)
+    const pathDelta = layoutEntry?.pathDelta ?? 0
+    const extraOffset = layoutEntry?.extraOffset ?? 0
+    const deltaMultiplier = layoutEntry?.deltaMultiplier ?? 300
 
     const {sx, sy, tx, ty} = (()=>{
         // без сортировки связи например с currentDelta 1 и -1 могли накладываться друг на друга, если ведут в разные стороны
@@ -99,7 +77,7 @@ function FloatingEdge({
         sourceY: sy,
         targetX: tx,
         targetY: ty
-    }, currentDelta, 300);
+    }, pathDelta, deltaMultiplier, extraOffset);
 
     const strokeColor = (()=>{
         if(isGenerallyMarkedForDelete) return "#ff000044";
@@ -132,7 +110,7 @@ function FloatingEdge({
                     }}>
                         <div style={{
                             position: "absolute",
-                            backgroundColor: isGenerallyMarkedForDelete ? "red" : "white",
+                            backgroundColor: data.isExplicitlyMarkedForDelete ? "red" : data.sourceOrCreated == "created" ? "green" : "white",
                             width: "100%",
                             height: "100%",
                             opacity: isGenerallyMarkedForDelete ? "0.1" : "0.5",
@@ -143,7 +121,8 @@ function FloatingEdge({
                             items={[{
                                 label: (
                                     <Flex vertical>
-                                        <div>{currentDelta}</div>
+                                        <div>{pathDelta}</div>
+                                        <div>{extraOffset}</div>
                                         <div>{path}</div>
                                         <div>{currentData.label}</div>
                                         <div>{currentData.id}</div>

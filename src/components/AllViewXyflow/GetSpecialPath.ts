@@ -18,6 +18,7 @@ export const getSpecialPath = (
     {sourceX, sourceY, targetX, targetY}: GetSpecialPathParams,
     delta: number,
     deltaMultiplier: number,
+    extraOffset = 0,
 ) => {
     /*
     * delta:
@@ -42,8 +43,8 @@ export const getSpecialPath = (
     const ny = dx / length;
 
     // смещаем контрольную точку
-    const centerX = rawCenterX + nx * delta * deltaMultiplier;
-    const centerY = rawCenterY + ny * delta * deltaMultiplier;
+    const centerX = rawCenterX + nx * (delta * deltaMultiplier + extraOffset);
+    const centerY = rawCenterY + ny * (delta * deltaMultiplier + extraOffset);
 
     // чето кароче чтоб направляющую какой-то там кривой привести к реальной вершине этой кривой, куда потом лейбл втыкать
     const t = 0.5;
