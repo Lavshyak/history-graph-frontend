@@ -5,6 +5,14 @@ export type GetSpecialPathParams = {
     targetY: number;
 };
 
+// Coordinates are padded to a fixed width so that, rendered in a monospace font,
+// the path string always occupies exactly the same width regardless of the actual
+// values. This keeps the card's automatic width independent of the card's own
+// position (which depends on `extraOffset`) — otherwise the width would feed back
+// into the layout and the card would jitter forever.
+const COORD_FIELD_WIDTH = 9;
+const formatCoord = (value: number) => value.toFixed(1).padStart(COORD_FIELD_WIDTH, " ");
+
 /**
  *
  * @param sourceX
@@ -13,6 +21,9 @@ export type GetSpecialPathParams = {
  * @param targetY
  * @param delta - position when multiple edges
  * @param deltaMultiplier - offset multiplier
+ * @param extraOffset - collision offset. The whole edge is stretched by it so its
+ *   apex (the point the label sits on) lands exactly where the card is placed, so
+ *   the card always stays ON its edge instead of floating next to it.
  */
 export const getSpecialPath = (
     {sourceX, sourceY, targetX, targetY}: GetSpecialPathParams,
@@ -36,17 +47,22 @@ export const getSpecialPath = (
     const rawCenterY = (sourceY + targetY) / 2;
 
     // длина вектора
-    const length = Math.sqrt(dx * dx + dy * dy);
+    const length = Math.sqrt(dx * dx + dy * dy) || 1;
 
     // нормализованный перпендикуляр
     const nx = -dy / length;
     const ny = dx / length;
 
-    // смещаем контрольную точку
-    const centerX = rawCenterX + nx * (delta * deltaMultiplier + extraOffset);
-    const centerY = rawCenterY + ny * (delta * deltaMultiplier + extraOffset);
+    // Контрольная точка выгибает ребро и на параллельное смещение (delta), и на
+    // collision-смещение (extraOffset). Точка кривой при t = 0.5 уезжает на
+    // половину смещения контрольной точки, поэтому extraOffset удваивается —
+    // тогда вершина кривой (и лейбл на ней) смещается ровно на extraOffset, а
+    // ребро «вытягивается» вслед за карточкой.
+    const controlOffset = delta * deltaMultiplier + extraOffset * 2;
+    const centerX = rawCenterX + nx * controlOffset;
+    const centerY = rawCenterY + ny * controlOffset;
 
-    // чето кароче чтоб направляющую какой-то там кривой привести к реальной вершине этой кривой, куда потом лейбл втыкать
+    // Вершина квадратичной кривой Безье при t = 0.5 — точка, куда «втыкается» лейбл.
     const t = 0.5;
     const labelX =
         (1 - t) * (1 - t) * sourceX +
@@ -59,6 +75,7 @@ export const getSpecialPath = (
 
     return {
         path: `M ${sourceX} ${sourceY} Q ${centerX} ${centerY} ${targetX} ${targetY}`,
+        pathDisplay: `M ${formatCoord(sourceX)} ${formatCoord(sourceY)} Q ${formatCoord(centerX)} ${formatCoord(centerY)} ${formatCoord(targetX)} ${formatCoord(targetY)}`,
         labelX,
         labelY,
     };

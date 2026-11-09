@@ -7,11 +7,20 @@ import {
 import {getEdgeParams} from './utils.ts';
 import {Button, Collapse, Flex} from 'antd';
 import {getSpecialPath} from "./GetSpecialPath.ts";
-import {useContext, useState} from "react";
+import {type CSSProperties, useContext, useLayoutEffect, useRef, useState} from "react";
 import type {XfEdge} from "./XyFlowTypeAliases.ts";
-import {EditableContext, EdgeLabelLayoutContext} from "./Contexts.ts";
+import {EditableContext, EdgeLabelLayoutContext, EdgeLabelSizeContext} from "./Contexts.ts";
 import {useKeyedEventHandling} from "../../hooks/useKeyedEventHandling.ts";
 import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
+
+// Monospace + preserved whitespace. Combined with the fixed-width coordinate
+// formatting in getSpecialPath, this keeps the card's automatic width independent
+// of the offset-dependent debug values, so measuring the card never fights with
+// the layout (no jitter).
+const debugTextStyle: CSSProperties = {
+    fontFamily: "monospace",
+    whiteSpace: "pre",
+};
 
 function FloatingEdge({
                           id: thisEdgeId,
@@ -60,6 +69,30 @@ function FloatingEdge({
     const targetNode = useInternalNode(target);
     const isEditable = useContext(EditableContext)
     const edgeLabelLayout = useContext(EdgeLabelLayoutContext)
+    const {reportSize} = useContext(EdgeLabelSizeContext)
+
+    // Report the real rendered card size so the layout can separate cards using
+    // their actual dimensions instead of hardcoded guesses.
+    const labelCardRef = useRef<HTMLDivElement>(null)
+    useLayoutEffect(() => {
+        const element = labelCardRef.current
+        if (!element) return
+
+        const measure = () => {
+            // offsetWidth/offsetHeight are layout sizes in flow units: they are
+            // unaffected by the viewport zoom and by the translate() that moves
+            // the card, unlike getBoundingClientRect().
+            reportSize(thisEdgeId, {
+                width: element.offsetWidth,
+                height: element.offsetHeight,
+            })
+        }
+
+        measure()
+        const observer = new ResizeObserver(measure)
+        observer.observe(element)
+        return () => observer.disconnect()
+    }, [thisEdgeId, reportSize])
 
     const layoutEntry = edgeLabelLayout.get(thisEdgeId)
     const pathDelta = layoutEntry?.pathDelta ?? 0
@@ -72,7 +105,7 @@ function FloatingEdge({
         const sorted = [sourceNode,targetNode].sort((a,b)=>a?.id.localeCompare(b?.id))
         return getEdgeParams(sorted[0], sorted[1]);
     })()
-    const {path, labelX, labelY} = getSpecialPath({
+    const {path, pathDisplay, labelX, labelY} = getSpecialPath({
         sourceX: sx,
         sourceY: sy,
         targetX: tx,
@@ -104,10 +137,12 @@ function FloatingEdge({
                         overflow: "hidden"
                     }}
                 >
-                    <div style={{
-                        position: "relative",
-                        minWidth: "50px",
-                    }}>
+                    <div
+                        ref={labelCardRef}
+                        style={{
+                            position: "relative",
+                        }}
+                    >
                         <div style={{
                             position: "absolute",
                             backgroundColor: data.isExplicitlyMarkedForDelete ? "red" : data.sourceOrCreated == "created" ? "green" : "white",
@@ -123,7 +158,7 @@ function FloatingEdge({
                                     <Flex vertical>
                                         <div>{pathDelta}</div>
                                         <div>{extraOffset}</div>
-                                        <div>{path}</div>
+                                        <div>{pathDisplay}</div>
                                         <div>{currentData.label}</div>
                                         <div>{currentData.id}</div>
                                     </Flex>

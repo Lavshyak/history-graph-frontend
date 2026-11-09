@@ -3,9 +3,31 @@ import {getEdgeParams} from "./utils.ts";
 import {getSpecialPath} from "./GetSpecialPath.ts";
 import type {XfEdge} from "./XyFlowTypeAliases.ts";
 
-export const LABEL_CARD_WIDTH = 100;
-export const LABEL_CARD_HEIGHT = 100;
-export const LABEL_CARD_PADDING = 100;
+// Fallback card size, used only until the real card has been measured for the
+// first time. The real size is adaptive and measured from the rendered card
+// (see EdgeLabelLayoutProvider / FloatingEdge).
+export const DEFAULT_LABEL_CARD_WIDTH = 200;
+export const DEFAULT_LABEL_CARD_HEIGHT = 120;
+// Extra margin added around a card when testing overlaps. Kept at 0 so a card is
+// only displaced when it *actually* collides — otherwise even a small margin
+// makes a card that almost fits between two nodes flee far away ("scattered").
+export const LABEL_CARD_PADDING = 0;
+// Extra margin added around a node card when testing overlaps (0 for the same
+// reason as above).
+export const NODE_BOX_MARGIN = 0;
+// Fine sliding granularity for collision resolution. Small steps make the greedy
+// search return the *nearest* free position, keeping cards close to their edges.
+const COLLISION_STEP = 16;
+
+export type LabelSize = {
+    width: number;
+    height: number;
+};
+
+const DEFAULT_LABEL_SIZE: LabelSize = {
+    width: DEFAULT_LABEL_CARD_WIDTH,
+    height: DEFAULT_LABEL_CARD_HEIGHT,
+};
 
 export type EdgeLabelLayoutEntry = {
     pathDelta: number;
@@ -21,6 +43,7 @@ type EdgeGeometry = {
     ny: number;
     pathDelta: number;
     deltaMultiplier: number;
+    size: LabelSize;
 };
 
 type LabelBox = {
@@ -51,9 +74,14 @@ export function computeParallelEdgeDeltas(edgeIds: readonly string[]): Map<strin
     return deltas;
 }
 
+// Base spacing between parallel edges' curves. Intentionally independent of the
+// measured card size: otherwise the path string (and thus the card width) would
+// depend on the size again, closing the measurement feedback loop. Real card
+// separation is done by the collision resolution below.
+const PARALLEL_EDGE_BASE_SPACING = 200;
+
 export function computeDeltaMultiplier(parallelEdgeCount: number): number {
-    const spacing = LABEL_CARD_WIDTH + LABEL_CARD_PADDING;
-    return spacing * Math.max(1, Math.ceil(parallelEdgeCount / 2));
+    return PARALLEL_EDGE_BASE_SPACING * Math.max(1, Math.ceil(parallelEdgeCount / 2));
 }
 
 function getLabelCenter(geometry: EdgeGeometry, extraOffset: number) {
@@ -65,8 +93,8 @@ function getLabelCenter(geometry: EdgeGeometry, extraOffset: number) {
 
 function getLabelBox(geometry: EdgeGeometry, extraOffset: number): LabelBox {
     const {x, y} = getLabelCenter(geometry, extraOffset);
-    const halfW = LABEL_CARD_WIDTH / 2 + LABEL_CARD_PADDING;
-    const halfH = LABEL_CARD_HEIGHT / 2 + LABEL_CARD_PADDING;
+    const halfW = geometry.size.width / 2 + LABEL_CARD_PADDING;
+    const halfH = geometry.size.height / 2 + LABEL_CARD_PADDING;
 
     return {
         left: x - halfW,
@@ -80,58 +108,91 @@ function boxesOverlap(a: LabelBox, b: LabelBox): boolean {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
-function getStepSize(nx: number, ny: number): number {
-    // Perpendicular direction (nx, ny) determines which axis we're separating along:
-    // - |nx| > |ny| → primarily horizontal separation → use label width + padding
-    // - |ny| > |nx| → primarily vertical separation → use label height + padding
-    if (Math.abs(nx) > Math.abs(ny)) {
-        return LABEL_CARD_WIDTH + LABEL_CARD_PADDING;
+function getNodeBoxes(nodeLookup: Map<string, InternalNode>): LabelBox[] {
+    const boxes: LabelBox[] = [];
+
+    for (const node of nodeLookup.values()) {
+        // Use the real, measured node size instead of a guess so relationship
+        // cards are pushed away from actual node cards.
+        const width = node.measured?.width;
+        const height = node.measured?.height;
+        if (width == null || height == null) {
+            continue;
+        }
+
+        const x = node.internals.positionAbsolute.x;
+        const y = node.internals.positionAbsolute.y;
+
+        boxes.push({
+            left: x - NODE_BOX_MARGIN,
+            right: x + width + NODE_BOX_MARGIN,
+            top: y - NODE_BOX_MARGIN,
+            bottom: y + height + NODE_BOX_MARGIN,
+        });
     }
-    return LABEL_CARD_HEIGHT + LABEL_CARD_PADDING;
+
+    return boxes;
 }
 
-function resolveCollisions(geometries: readonly EdgeGeometry[]): Map<string, number> {
-    const offsets = new Map(geometries.map((geometry) => [geometry.edgeId, 0]));
+function boxesOverlapAny(box: LabelBox, others: readonly LabelBox[]): boolean {
+    for (const other of others) {
+        if (boxesOverlap(box, other)) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    for (let iteration = 0; iteration < geometries.length * 8; iteration++) {
-        let moved = false;
+// Deterministic greedy placement.
+//
+// Cards are placed one by one. Each card first tries its natural position
+// (extraOffset = 0); if it collides with a node card or with an already placed
+// relationship card, the edge is stretched (the card slides along its own
+// perpendicular) in fine steps until the nearest free spot is found. Because the
+// search only depends on inputs (never on a previous render), the result is
+// stable.
+function findFreeOffset(
+    geometry: EdgeGeometry,
+    nodeBoxes: readonly LabelBox[],
+    placedBoxes: readonly LabelBox[],
+): number {
+    const step = COLLISION_STEP;
+    const maxSteps = 200;
 
-        for (let i = 0; i < geometries.length; i++) {
-            for (let j = i + 1; j < geometries.length; j++) {
-                const left = geometries[i];
-                const right = geometries[j];
-                const leftOffset = offsets.get(left.edgeId)!;
-                const rightOffset = offsets.get(right.edgeId)!;
-                const leftBox = getLabelBox(left, leftOffset);
-                const rightBox = getLabelBox(right, rightOffset);
+    for (let k = 0; k <= maxSteps; k++) {
+        // k = 0 → keep the natural position.
+        // Otherwise try both sides, alternating which one goes first so cards
+        // distribute evenly instead of always stacking on the same side.
+        const candidates = k === 0
+            ? [0]
+            : (k % 2 === 1 ? [k * step, -k * step] : [-k * step, k * step]);
 
-                if (!boxesOverlap(leftBox, rightBox)) {
-                    continue;
-                }
-
-                const leftCenter = getLabelCenter(left, leftOffset);
-                const rightCenter = getLabelCenter(right, rightOffset);
-                const vx = rightCenter.x - leftCenter.x;
-                const vy = rightCenter.y - leftCenter.y;
-
-                const leftSign = left.nx * vx + left.ny * vy >= 0 ? 1 : -1;
-                const rightSign = right.nx * vx + right.ny * vy >= 0 ? 1 : -1;
-
-                // Choose step size based on the edge's perpendicular direction:
-                // vertical edges (horizontal perp) → width-based step
-                // horizontal edges (vertical perp) → height-based step
-                // this prevents label cards from overlapping when edges are vertical
-                const step = getStepSize(left.nx, left.ny);
-
-                offsets.set(left.edgeId, leftOffset - leftSign * step * 0.5);
-                offsets.set(right.edgeId, rightOffset + rightSign * step * 0.5);
-                moved = true;
+        for (const offset of candidates) {
+            const box = getLabelBox(geometry, offset);
+            if (!boxesOverlapAny(box, nodeBoxes) && !boxesOverlapAny(box, placedBoxes)) {
+                return offset;
             }
         }
+    }
 
-        if (!moved) {
-            break;
-        }
+    // Fallback: nothing free found within range — keep the natural position.
+    return 0;
+}
+
+function resolveCollisions(
+    geometries: readonly EdgeGeometry[],
+    nodeBoxes: readonly LabelBox[],
+): Map<string, number> {
+    // Sort for determinism: the same graph always produces the same layout.
+    const ordered = [...geometries].sort((a, b) => a.edgeId.localeCompare(b.edgeId));
+
+    const offsets = new Map<string, number>();
+    const placedBoxes: LabelBox[] = [];
+
+    for (const geometry of ordered) {
+        const offset = findFreeOffset(geometry, nodeBoxes, placedBoxes);
+        offsets.set(geometry.edgeId, offset);
+        placedBoxes.push(getLabelBox(geometry, offset));
     }
 
     return offsets;
@@ -140,6 +201,7 @@ function resolveCollisions(geometries: readonly EdgeGeometry[]): Map<string, num
 export function computeEdgeLabelLayout(
     edges: readonly XfEdge[],
     nodeLookup: Map<string, InternalNode>,
+    labelSizes: ReadonlyMap<string, LabelSize> = new Map(),
 ): Map<string, EdgeLabelLayoutEntry> {
     const parallelGroups = new Map<string, string[]>();
 
@@ -169,6 +231,7 @@ export function computeEdgeLabelLayout(
         const groupEdgeIds = parallelGroups.get(groupKey)!;
         const pathDelta = computeParallelEdgeDeltas(groupEdgeIds).get(edge.id) ?? 0;
         const deltaMultiplier = computeDeltaMultiplier(groupEdgeIds.length);
+        const size = labelSizes.get(edge.id) ?? DEFAULT_LABEL_SIZE;
         const {labelX, labelY} = getSpecialPath(
             {sourceX: sx, sourceY: sy, targetX: tx, targetY: ty},
             pathDelta,
@@ -187,10 +250,12 @@ export function computeEdgeLabelLayout(
             ny: dx / length,
             pathDelta,
             deltaMultiplier,
+            size,
         });
     }
 
-    const extraOffsets = resolveCollisions(geometries);
+    const nodeBoxes = getNodeBoxes(nodeLookup);
+    const extraOffsets = resolveCollisions(geometries, nodeBoxes);
     const layout = new Map<string, EdgeLabelLayoutEntry>();
 
     for (const geometry of geometries) {
