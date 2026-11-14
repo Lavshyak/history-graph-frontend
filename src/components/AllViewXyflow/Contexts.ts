@@ -19,23 +19,3 @@ export const EdgeLabelSizeContext = createContext<{
     },
 });
 
-/*
-export const MarkEdgeForDeleteContext = createContext<{
-    markEdgeForDelete: (edgeId: string) => void,
-    undoMarkEdgeForDelete: (edgeId: string) => void
-}>({
-    markEdgeForDelete: () => {
-    },
-    undoMarkEdgeForDelete: () => {
-    }
-});
-
-export const MarkNodeForDeleteContext = createContext<{
-    markNodeForDelete: (nodeId: string) => void,
-    undoMarkNodeForDelete: (nodeId: string) => void
-}>({
-    markNodeForDelete: () => {
-    },
-    undoMarkNodeForDelete: () => {
-    }
-});*/
