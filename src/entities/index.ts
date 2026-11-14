@@ -17,10 +17,21 @@ import { useLocalState } from '../hooks/UseLocalState.ts'
 import { NodeDatasStateManagerContext } from '../contexts/NodeDatasStateManagerContext.ts'
 import { EdgeDatasStateManagerContext } from '../contexts/EdgeDatasStateManagerContext.ts'
 import { GraphDataHasChangesContext } from '../contexts/GraphDataHasChangesContext.ts'
-import { EditableContext } from '../components/AllViewXyflow/Contexts.ts'
+import {
+	EditableContext,
+	EdgeLabelLayoutContext,
+	EdgeLabelSizeContext,
+} from './types/Contexts.ts'
 import { EdgeLabelLayoutProvider } from '../components/AllViewXyflow/EdgeLabelLayoutProvider.tsx'
 import { ForceRerenderContext } from '../contexts/ForceRerenderContext.ts'
 import type { ContextMenuParams } from './board/types/ContextMenuParams.ts'
+import { useKeyedEventHandling } from '../hooks/useKeyedEventHandling'
+import { getEdgeParams } from './ConfiguringConnections/types/utils.ts'
+import { getSpecialPath } from './ConfiguringConnections/types/GetSpecialPath.ts'
+import {
+	computeEdgeLabelLayout,
+	type LabelSize,
+} from './EdgeLabelLayoutProvider/types/edgeLabelLayout.ts'
 
 export {
 	useGetHistoryGetall,
@@ -37,6 +48,12 @@ export {
 	EditableContext,
 	ForceRerenderContext,
 	EventNode,
+	useKeyedEventHandling,
+	EdgeLabelLayoutContext,
+	EdgeLabelSizeContext,
+	getEdgeParams,
+	getSpecialPath,
+	computeEdgeLabelLayout,
 }
 export type {
 	XfEdge,
@@ -46,4 +63,5 @@ export type {
 	EdgeDataIdType,
 	EdgeSourceData,
 	ContextMenuParams,
+	LabelSize,
 }

@@ -1,5 +1,5 @@
 import {createContext} from "react";
-import type {EdgeLabelLayoutEntry, LabelSize} from "./edgeLabelLayout.ts";
+import type {EdgeLabelLayoutEntry, LabelSize} from "../../board/types/edgeLabelLayout.ts";
 
 export const EditableContext = createContext(false);
 
