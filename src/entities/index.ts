@@ -1,18 +1,15 @@
 import { useGetHistoryGetall } from '../gen/index.ts'
-import { EventNode } from '../components/AllViewXyflow/EventNode.tsx'
-import type {
-	XfEdge,
-	XfNode,
-} from '../components/AllViewXyflow/XyFlowTypeAliases.ts'
+import { EventNode } from './EventNode/components/EventNode.tsx'
+import type { XfEdge, XfNode } from './types/XyFlowTypeAliases.ts'
 import { devDtoEventsAndRelationshipsMock } from '../components/dev.ts'
-import CustomConnectionLine from '../components/AllViewXyflow/CustomConnectionLine.tsx'
+import CustomConnectionLine from './CustomConnection/components/CustomConnectionLine.tsx'
 
-import FloatingEdge from '../components/AllViewXyflow/FloatingEdge.tsx'
+import FloatingEdge from './FloatingEdge/components/FloatingEdge.tsx'
 import type { NodeDataIdType, NodeSourceData } from '../types/NodeData.ts'
 import type { EdgeDataIdType, EdgeSourceData } from '../types/EdgeData.ts'
 import { useEventHandling } from '../hooks/useEventHandling.ts'
 
-import { prettifyGraph } from '../components/AllViewXyflow/prettifyGraph.ts'
+import { prettifyGraph } from './types/prettifyGraph.ts'
 import { useLocalState } from '../hooks/UseLocalState.ts'
 import { NodeDatasStateManagerContext } from '../contexts/NodeDatasStateManagerContext.ts'
 import { EdgeDatasStateManagerContext } from '../contexts/EdgeDatasStateManagerContext.ts'
@@ -22,16 +19,16 @@ import {
 	EdgeLabelLayoutContext,
 	EdgeLabelSizeContext,
 } from './types/Contexts.ts'
-import { EdgeLabelLayoutProvider } from '../components/AllViewXyflow/EdgeLabelLayoutProvider.tsx'
+import { EdgeLabelLayoutProvider } from '../entities/EdgeLabelLayoutProvider/components/EdgeLabelLayoutProvider.tsx'
 import { ForceRerenderContext } from '../contexts/ForceRerenderContext.ts'
-import type { ContextMenuParams } from './board/types/ContextMenuParams.ts'
+import type { ContextMenuParams } from './types/ContextMenuParams.ts'
 import { useKeyedEventHandling } from '../hooks/useKeyedEventHandling'
-import { getEdgeParams } from './ConfiguringConnections/types/utils.ts'
-import { getSpecialPath } from './ConfiguringConnections/types/GetSpecialPath.ts'
+import { getEdgeParams } from './types/utils.ts'
+import { getSpecialPath } from './types/GetSpecialPath.ts'
 import {
 	computeEdgeLabelLayout,
 	type LabelSize,
-} from './EdgeLabelLayoutProvider/types/edgeLabelLayout.ts'
+} from './types/edgeLabelLayout.ts'
 
 export {
 	useGetHistoryGetall,

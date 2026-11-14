@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import '@xyflow/react/dist/style.css'
 import { Button, Divider, Flex, Space, Switch } from 'antd'
 import { ContextMenu } from '../../createNode/components/ContextMenu.tsx'
 
