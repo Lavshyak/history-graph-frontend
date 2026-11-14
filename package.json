@@ -11,6 +11,7 @@
     "apicodegen": "kubb generate --config kubb.config.ts"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.14.0",
     "@tanstack/react-query": "^5.75.7",
     "@types/lodash": "^4.17.20",
     "@xyflow/react": "^12.8.4",
@@ -22,6 +23,8 @@
     "mitt": "^3.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-redux": "^9.3.1",
+    "redux-toolkit": "^1.1.2",
     "web-worker": "^1.5.0",
     "zustand": "^5.0.8"
   },
