@@ -3,6 +3,9 @@ import '@xyflow/react/dist/style.css'
 import { Button, Divider, Flex, Space, Switch } from 'antd'
 import { ContextMenu } from '../../createNode/components/ContextMenu.tsx'
 
+import sort from '../../../assets/sort.svg'
+
+
 import {
 	applyEdgeChanges,
 	applyNodeChanges,
@@ -16,6 +19,7 @@ import {
 	type Viewport,
 	type XYPosition,
 	MarkerType,
+	ControlButton,
 } from '@xyflow/react'
 
 import {
@@ -44,6 +48,9 @@ import type {
 	EdgeSourceData,
 	ContextMenuParams,
 } from '../../index.ts'
+import { useDispatch, useSelector } from 'react-redux'
+import type { AppDispatch, RootState } from '../../../redux/store.tsx'
+import { toggleOpenPanelSearchAndSort } from '../../../redux/slice/toggleSlice.ts'
 
 const connectionLineStyle = {
 	stroke: '#b1b1b7',
@@ -71,6 +78,10 @@ function AllViewXyflow() {
 	const { forceRerender } = useContext(ForceRerenderContext)
 
 	const [isEditable, setIsEditable] = useState<boolean>(true)
+	const dispatch = useDispatch<AppDispatch>()
+	const isOpenPanelSortAndSearch = useSelector(
+		(store: RootState) => store.ToggleSlice.isOpenPanelSortAndSearch,
+	)
 
 	const recommendedNodePositionsOnAdd = useRef(
 		new Map<NodeDataIdType, XYPosition>(),
@@ -345,7 +356,20 @@ function AllViewXyflow() {
 										}}
 										connectOnClick={false}
 									>
-										<Controls showInteractive={true} />
+										<Controls showInteractive={true}>
+											<ControlButton
+												title='Sort'
+												onClick={() =>
+													dispatch(
+														toggleOpenPanelSearchAndSort(
+															!isOpenPanelSortAndSearch,
+														),
+													)
+												}
+											>
+												<img src={sort} alt='sort' width={16} />
+											</ControlButton>
+										</Controls>
 										<Background />
 										{menu && (
 											<ContextMenu
