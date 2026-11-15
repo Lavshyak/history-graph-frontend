@@ -41,43 +41,30 @@ export default function PanelForSortAndSearch() {
 	}
 
 	useEffect(() => {
-		if (operand) {
-			setData(prev =>
-				[...prev].sort(
-					(a, b) => new Date(b.timeTo).getTime() - new Date(a.timeTo).getTime(),
-				),
-			)
-		} else {
-			setData(prev =>
-				[...prev].sort(
-					(a, b) => new Date(a.timeTo).getTime() - new Date(b.timeTo).getTime(),
-				),
-			)
-		}
-		console.log(data)
-	}, [operand])
+		const searchLowerCaseAndTrim = search.toLowerCase().trim()
 
-	useEffect(() => {
-		if (search.length === 0)
-			return setData(
-				initialData
-					.map(el => el.currentData)
-					.sort(
-						(a, b) =>
-							new Date(a.timeTo).getTime() - new Date(b.timeTo).getTime(),
+		const findSearch = initialData
+			.map(el => el.currentData)
+			.filter(
+				obj =>
+					obj.title.toLowerCase().trim().includes(searchLowerCaseAndTrim) ||
+					obj.description
+						.toLowerCase()
+						.trim()
+						.includes(searchLowerCaseAndTrim) ||
+					obj.keywords.some(el =>
+						el.toLowerCase().trim().includes(searchLowerCaseAndTrim),
 					),
 			)
+
 		setData(
-			initialData
-				.map(el => el.currentData)
-				.filter(
-					obj =>
-						obj.title.toLowerCase().includes(search) ||
-						obj.description.toLowerCase().includes(search) ||
-						obj.keywords.some(el => el.toLowerCase().includes(search)),
-				),
+			findSearch.sort((a, b) =>
+				operand
+					? b.timeTo.getTime() - a.timeTo.getTime()
+					: a.timeTo.getTime() - b.timeTo.getTime(),
+			),
 		)
-	}, [search])
+	}, [operand, search, initialData])
 
 	return (
 		<div
