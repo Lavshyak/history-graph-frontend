@@ -1,10 +1,17 @@
-import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import {
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+	memo,
+} from 'react'
 import '@xyflow/react/dist/style.css'
 import { Button, Divider, Flex, Space, Switch } from 'antd'
 import { ContextMenu } from '../../createNode/components/ContextMenu.tsx'
 
 import sort from '../../../assets/sort.svg'
-
+import PanelForSortAndSearch from '../../PanelForSortAndSearch/components/PanelForSortAndSearch.tsx'
 
 import {
 	applyEdgeChanges,
@@ -48,9 +55,8 @@ import type {
 	EdgeSourceData,
 	ContextMenuParams,
 } from '../../index.ts'
-import { useDispatch, useSelector } from 'react-redux'
-import type { AppDispatch, RootState } from '../../../redux/store.tsx'
-import { toggleOpenPanelSearchAndSort } from '../../../redux/slice/toggleSlice.ts'
+
+import { useToggleStore } from '../../../store/toggleState.ts'
 
 const connectionLineStyle = {
 	stroke: '#b1b1b7',
@@ -71,16 +77,18 @@ const defaultEdgeOptions = {
 	},
 }
 
-function AllViewXyflow() {
+const AllViewXyflow = memo(function AllViewXyflow() {
 	const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 	const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
 	const graphHasChanges = useContext(GraphDataHasChangesContext)
 	const { forceRerender } = useContext(ForceRerenderContext)
 
 	const [isEditable, setIsEditable] = useState<boolean>(true)
-	const dispatch = useDispatch<AppDispatch>()
-	const isOpenPanelSortAndSearch = useSelector(
-		(store: RootState) => store.ToggleSlice.isOpenPanelSortAndSearch,
+	const isOpenPanelSortAndSearch = useToggleStore(
+		state => state.isOpenPanelSortAndSearch,
+	)
+	const toggleOpenPanelSearchAndSort = useToggleStore(
+		state => state.toggleOpenPanelSearchAndSort,
 	)
 
 	const recommendedNodePositionsOnAdd = useRef(
@@ -360,10 +368,8 @@ function AllViewXyflow() {
 											<ControlButton
 												title='Sort'
 												onClick={() =>
-													dispatch(
-														toggleOpenPanelSearchAndSort(
-															!isOpenPanelSortAndSearch,
-														),
+													toggleOpenPanelSearchAndSort(
+														!isOpenPanelSortAndSearch,
 													)
 												}
 											>
@@ -378,6 +384,7 @@ function AllViewXyflow() {
 												onMouseLeave={() => setMenu(null)}
 											/>
 										)}
+										{isOpenPanelSortAndSearch && <PanelForSortAndSearch />}
 									</ReactFlow>
 								</EdgeLabelLayoutProvider>
 							</EditableContext.Provider>
@@ -424,6 +431,6 @@ function AllViewXyflow() {
 			</Flex>
 		</div>
 	)
-}
+})
 
 export default AllViewXyflow

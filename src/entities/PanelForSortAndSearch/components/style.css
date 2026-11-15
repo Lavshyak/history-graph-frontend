@@ -1,0 +1,9 @@
+.panel-sort_icon:hover {
+	scale: 1.1;
+	transition: all 0.3s ease;
+}
+
+.panel-sort_icon-revert {
+	rotate: 180deg;
+	transition: all 0.3s ease;
+}

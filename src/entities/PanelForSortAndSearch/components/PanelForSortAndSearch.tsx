@@ -1,9 +1,178 @@
-import React from 'react'
+import { useContext, useState, useMemo, useEffect, useRef } from 'react'
+import { NodeDatasStateManagerContext } from '../../index.ts'
+import { Collapse, Flex } from 'antd'
+import { useToggleStore } from '../../../store/toggleState.ts'
+
+import sort from '../../../assets/sort.svg'
+import './style.css'
 
 export default function PanelForSortAndSearch() {
-  return (
-    <div>
-      
-    </div>
-  )
+	const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
+
+	const initialData = useMemo(
+		() => Array.from(nodeDatasStateManager.allNodeDatasMap.values()),
+		[nodeDatasStateManager],
+	)
+
+	const [data, setData] = useState(initialData.map(el => el.currentData))
+	const [search, setSearch] = useState<string>('')
+	const [operand, setOperand] = useState<boolean>(false)
+	const ref = useRef<HTMLDivElement>(null)
+
+	const toggleOpenPanelSearchAndSort = useToggleStore(
+		state => state.toggleOpenPanelSearchAndSort,
+	)
+
+	useEffect(() => {
+		setData(
+			initialData
+				.map(el => el.currentData)
+				.sort(
+					(a, b) => new Date(a.timeTo).getTime() - new Date(b.timeTo).getTime(),
+				),
+		)
+	}, [initialData])
+
+	const onChangeClosePanel = (event: React.MouseEvent<HTMLDivElement>) => {
+		const ref_ = ref.current
+		if (ref && event.target.contains(ref_)) {
+			toggleOpenPanelSearchAndSort(false) // close panel (state from zustand)
+		}
+	}
+
+	useEffect(() => {
+		if (operand) {
+			setData(prev =>
+				[...prev].sort(
+					(a, b) => new Date(b.timeTo).getTime() - new Date(a.timeTo).getTime(),
+				),
+			)
+		} else {
+			setData(prev =>
+				[...prev].sort(
+					(a, b) => new Date(a.timeTo).getTime() - new Date(b.timeTo).getTime(),
+				),
+			)
+		}
+		console.log(data)
+	}, [operand])
+
+	useEffect(() => {
+		if (search.length === 0)
+			return setData(
+				initialData
+					.map(el => el.currentData)
+					.sort(
+						(a, b) =>
+							new Date(a.timeTo).getTime() - new Date(b.timeTo).getTime(),
+					),
+			)
+		setData(
+			initialData
+				.map(el => el.currentData)
+				.filter(
+					obj =>
+						obj.title.toLowerCase().includes(search) ||
+						obj.description.toLowerCase().includes(search) ||
+						obj.keywords.some(el => el.toLowerCase().includes(search)),
+				),
+		)
+	}, [search])
+
+	return (
+		<div
+			ref={ref}
+			className='container-panel'
+			style={{
+				width: '100%',
+				height: '100%',
+				position: 'relative',
+				zIndex: '1000',
+			}}
+			onClick={event => onChangeClosePanel(event)}
+		>
+			<div
+				className='panel'
+				style={{
+					position: 'absolute',
+					right: '3rem',
+					top: '50%',
+					transform: 'translateY(-50%)',
+					width: '30%',
+					height: '80%',
+					backgroundColor: '#ffffff',
+					boxShadow: '0px 0px 30px #aaaaaa',
+					borderRadius: '2rem',
+					overflowY: 'scroll',
+					overflowX: 'hidden',
+					scrollbarColor: '#aaaaaa #ffffff',
+					scrollbarWidth: 'thin',
+					display: 'flex',
+					flexDirection: 'column',
+					alignItems: 'center',
+				}}
+			>
+				<div className='panel-header' style={{ display: 'flex', width: '90%' }}>
+					<input
+						style={{
+							width: '80%',
+							margin: '1rem',
+							backgroundColor: 'transparent',
+							outline: 'none',
+							border: '1px solid #aaa',
+							borderRadius: '0.9rem',
+							padding: '10px',
+							color: '#797979',
+							fontFamily: 'system-ui, Avenir, Helvetica, Arial, sans-serif',
+						}}
+						placeholder='Search...'
+						value={search}
+						onChange={e => setSearch(e.target.value.toLowerCase())}
+					/>
+					<img
+						src={sort}
+						alt='sort'
+						className={`panel-sort_icon ${operand ? 'panel-sort_icon-revert' : 'panel-sort_icon-norevert'}`}
+						width={18}
+						style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+						onClick={() => setOperand(!operand)}
+					/>
+				</div>
+				<ul
+					className='panel-list'
+					style={{
+						height: '100%',
+						padding: '0 2rem',
+						margin: '0',
+						width: '85%',
+					}}
+				>
+					{data.map(el => (
+						<Collapse
+							style={{ marginBottom: '1rem' }}
+							key={el.id}
+							items={[
+								{
+									label: (
+										<Flex vertical>
+											<div>title: {el.title}</div>
+										</Flex>
+									),
+									children: (
+										<Flex vertical>
+											<div>description: {el.description}</div>
+											<div>label: {el.label}</div>
+											<div>keywords: [{el.keywords.join(', ')}]</div>
+											<div>timeFrom: {el.timeFrom.toISOString()}</div>
+											<div>timeTo: {el.timeTo.toISOString()}</div>
+										</Flex>
+									),
+								},
+							]}
+						/>
+					))}
+				</ul>
+			</div>
+		</div>
+	)
 }

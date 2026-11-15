@@ -53,24 +53,12 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 	const [data, setData] = useState(initialData)
 	const [isEdit, setIsEdit] = useState<boolean>(false)
 
-	useKeyedEventHandling(
-		nodeDatasStateContext.nodesStateEvents.nodeDataUpdatedEvent,
-		thisNodeId,
-		({ newNodeData }) => {
-			setData(newNodeData)
-		},
-	)
-
 	const connection = useConnection()
 
 	const isTarget =
 		connection.inProgress && connection.fromNode.id !== thisNodeId
 
 	const isEditable = useContext(EditableContext)
-
-	if (!data) {
-		return <>no data for node id {thisNodeId}</>
-	}
 
 	const handleChangeEditEventNode = (
 		editableField: string,
@@ -79,6 +67,17 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 		nodeDatasStateContext.updateNodeData(thisNodeId, {
 			[editableField]: editString,
 		})
+	}
+
+	useKeyedEventHandling(
+		nodeDatasStateContext.nodesStateEvents.nodeDataUpdatedEvent,
+		thisNodeId,
+		({ newNodeData }) => {
+			setData(newNodeData)
+		},
+	)
+	if (!data) {
+		return <>no data for node id {thisNodeId}</>
 	}
 
 	return (
