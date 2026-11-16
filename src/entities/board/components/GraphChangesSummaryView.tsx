@@ -2,7 +2,7 @@ import {Card} from "antd";
 import {useContext, useState} from "react";
 import {NodeDatasStateManagerContext} from "../../../contexts/NodeDatasStateManagerContext.ts";
 import {EdgeDatasStateManagerContext} from "../../../contexts/EdgeDatasStateManagerContext.ts";
-import type {NodeData} from "../../../types/NodeData.ts";
+import type {NodeData, NodeDataIdType} from "../../../types/NodeData.ts";
 import {useEventHandling} from "../../../hooks/useEventHandling.ts";
 
 export default function GraphChangesSummaryView() {
@@ -10,6 +10,35 @@ export default function GraphChangesSummaryView() {
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
 
     const [createdNodes, setCreatedNodes] = useState<NodeData[]>([])
+
+    const createdNodesDict : {[key: NodeDataIdType]: {nodeData: NodeData, idx: number}} = {}
+    const createdNodesList : (NodeData|undefined)[] = []
+
+    useEventHandling(nodeDatasStateManager.nodesStateEvents.nodeAddedEvent,
+        ({nodeData, nodeDataId}) => {
+            if (nodeData.sourceOrCreated === "created") {
+                const idx = createdNodesList.length
+                createdNodesList.push(nodeData)
+                createdNodesDict[nodeData.currentData.id] = {nodeData, idx}
+            }
+        })
+
+    useEventHandling(nodeDatasStateManager.nodesStateEvents.nodeDataUpdatedEvent,
+        ({oldNodeData, newNodeData}) => {
+            // не удалена -> удалена
+            if (!oldNodeData.isExplicitlyMarkedForDelete && newNodeData.isExplicitlyMarkedForDelete) {
+                // создана только локально
+                if(newNodeData.sourceOrCreated === "created") {
+                    const idx = createdNodesDict[newNodeData.currentData.id].idx
+                    createdNodesList[idx] = undefined
+                    delete createdNodesDict[newNodeData.currentData.id]
+                }
+
+                setMarkedForDeleteNodes([...markedForDeleteNodes, newNodeData])
+            }
+        })
+
+
     const [updatedNodes, setUpdatedNodes] = useState<NodeData[]>([])
     const [markedForDeleteNodes, setMarkedForDeleteNodes] = useState<NodeData[]>([])
 
