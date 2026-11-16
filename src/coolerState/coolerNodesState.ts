@@ -80,6 +80,8 @@ export function createNodeDatasStateManager(): NodeDatasStateManager {
 	})
 
 	nodesStateEvents.nodeAddedEvent.on(({ nodeDataId, nodeData }) => {
+		if(nodeData.sourceOrCreated !== 'created')
+			return;
 		createdNodeDataIdsSet.add(nodeData.currentData.id)
 	})
 
