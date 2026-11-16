@@ -193,6 +193,7 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 												timeFrom: {data.currentData.timeFrom.toISOString()}
 											</div>
 											<div>timeTo: {data.currentData.timeTo.toISOString()}</div>
+											<div>sourceOrCreated: {data.sourceOrCreated}</div>
 											<Button
 												disabled={!isEditable}
 												onClick={() => {
