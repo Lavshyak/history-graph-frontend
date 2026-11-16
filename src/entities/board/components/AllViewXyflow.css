@@ -1,0 +1,26 @@
+/*
+  Ant Design's `Splitter` bar is transparent by default: the visible divider is the
+  `.ant-splitter-bar-dragger::before` pseudo-element, whose background is the faint,
+  semi-transparent `controlItemBgHover` token. On the dark page background it is
+  practically invisible until hovered. Make it opaque white by default.
+
+  The extra subtle outline (box-shadow) keeps the white bar visible even when it
+  sits next to the white graph panels.
+
+  `.ant-splitter` is added to the selector on purpose: Ant Design's own rule
+  (`.ant-splitter > .ant-splitter-bar .ant-splitter-bar-dragger::before`) has the
+  same specificity, and antd injects its styles at runtime (after this file), so
+  we need one extra class to reliably win the cascade.
+*/
+.all-view-splitter.ant-splitter > .ant-splitter-bar > .ant-splitter-bar-dragger:not(:hover) {
+    background: #ffffff11;
+    opacity: 1;
+    #box-shadow: 0 0 0 1px #d9d9d9;
+    width: 2px;
+}
+
+.all-view-splitter.ant-splitter > .ant-splitter-bar > .ant-splitter-bar-collapse-bar:not(:hover) {
+    background: #ffffff11;
+    opacity: 1;
+    #box-shadow: 0 0 0 1px #d9d9d9;
+}
