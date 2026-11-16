@@ -9,7 +9,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import {Button, Divider, Flex, Space, Switch, Splitter} from 'antd'
 import {ContextMenu} from '../../createNode/components/ContextMenu.tsx'
-
+import "./AllViewXyflow.css";
 import sort from '../../../assets/sort.svg'
 import PanelForSortAndSearch from '../../PanelForSortAndSearch/components/PanelForSortAndSearch.tsx'
 
@@ -321,17 +321,19 @@ const AllViewXyflow = memo(function AllViewXyflow() {
         })
     }, [])
 
+    console.log('viewport:', viewport);
+
     return (
         <Splitter className="all-view-splitter" style={{boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'}}>
             <Splitter.Panel collapsible={{start: true, end: true, showCollapsibleIcon: true}} min="20%"
-                            defaultSize="100%">
+                            defaultSize="80%">
                 <div style={{}}>
                     <Flex vertical style={{alignItems: 'center'}}>
                         <div style={{alignItems: 'stretch'}}>
                             <div
-                                style={{color: 'black', backgroundColor: 'white', width: '90vw'}}
+                                style={{color: 'black', backgroundColor: 'white'}}
                             >
-                                <div style={{height: '70vh'}}>
+                                <div style={{height: '70vh', width: "100%"}}>
                                     <EditableContext.Provider value={isEditable}>
                                         <EdgeLabelLayoutProvider>
                                             <ReactFlow
@@ -368,6 +370,7 @@ const AllViewXyflow = memo(function AllViewXyflow() {
                                                 }}
                                                 connectOnClick={false}
                                             >
+                                                {JSON.stringify(viewport)}
                                                 <Controls showInteractive={true}>
                                                     <ControlButton
                                                         title='Sort'
