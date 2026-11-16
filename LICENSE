@@ -1,1 +1,112 @@
-пока что запрещено всё👍🏿
+History Graph — Proprietary Source-Available License
+Version 1.0
+
+Copyright (c) 2026 Lavshyak (GitHub: @Lavshyak). All rights reserved.
+
+This software, together with its source code, documentation and other
+materials (the "Software"), is the exclusive property of the copyright
+holder named above (the "Owner"). The Software is published on GitHub for
+viewing only. It is NOT open source. No rights are granted except as
+expressly stated in this License. This License does not limit any rights of
+the Owner.
+
+1. DEFINITIONS
+   "Repository" — the public Git repository at
+   https://github.com/Lavshyak/history-graph-frontend and any successor.
+   "Authorized Collaborator" — the individual(s) listed in Schedule A.
+   "Fork" — a copy of the Repository created with GitHub's Fork feature
+   and kept public under the same GitHub account or organization.
+   "Hosting" — making the Software, or any product containing it,
+   available to third parties, whether over a network or by
+   distribution of copies.
+
+2. VIEWING RIGHTS (EVERYONE)
+   The Owner grants any person a non-exclusive, royalty-free, worldwide,
+   non-transferable license to view and read the Software through the
+   Repository or a Fork, and as otherwise permitted by applicable law
+   ("fair use") and by GitHub's Terms of Service. This is the only right
+   granted to the general public, and it is granted solely so that the
+   Software may be displayed on GitHub.
+
+3. COLLABORATION RIGHTS (AUTHORIZED COLLABORATORS ONLY)
+   The Owner grants each Authorized Collaborator a non-exclusive,
+   royalty-free, worldwide, non-sublicensable, non-transferable and
+   REVOCABLE license to:
+     (a) reproduce and store copies of the Software, including on the
+         collaborator's own machines and devices and in a public Fork
+         on GitHub;
+     (b) modify the Software and create derivative works of it;
+     (c) submit those modifications back to the Repository as pull
+         requests, patches or equivalent contributions;
+     (d) run, build and test the Software locally in non-public
+         environments for development and testing purposes only.
+   Each Authorized Collaborator must: keep this License and all copyright
+   notices intact in every copy and Fork; keep each Fork public and
+   identified as a Fork of the Repository; and license any Fork or
+   derivative work under this same License.
+
+4. RESERVED RIGHTS (OWNER)
+   The Owner reserves, and is the sole party entitled to exercise, all
+   rights not expressly granted above, including the right to:
+     (a) host, deploy or otherwise make the Software available to the
+         public;
+     (b) distribute, publish, sell, license, sublicense, transfer or
+         otherwise dispose of the Software or any product containing it;
+     (c) use the Software commercially or operate any service based on it;
+     (d) relicense the Software, in whole or in part, under any other
+         terms, including as closed-source / proprietary software;
+     (e) grant or withdraw additional permissions at any time.
+
+5. PROHIBITED USES (ALL PARTIES)
+   Except for the rights expressly granted in Sections 2 and 3, you may
+   NOT, without the Owner's prior written consent:
+     (a) copy, reproduce or store the Software (beyond GitHub-level
+         viewing and forking allowed by GitHub's Terms of Service);
+     (b) modify, adapt, translate or create derivative works;
+     (c) distribute, publish, sublicense, sell, rent, lease or otherwise
+         transfer the Software or any product containing it;
+     (d) host or deploy the Software or any product containing it,
+         publicly or for any third party, over a network or otherwise;
+     (e) use the Software for any commercial purpose;
+     (f) use the Software, in whole or in part, to develop, train or
+         improve any competing product or service;
+     (g) remove, alter or obscure any copyright, license or attribution
+         notice;
+     (h) use the Owner's name, logos or trademarks.
+
+6. CONTRIBUTIONS
+   Any contribution you submit to the Repository (e.g. a pull request) is
+   governed by the project's separate Contribution Terms / Contributor
+   License Agreement. If no such agreement is in effect, by submitting a
+   contribution you grant the Owner a perpetual, worldwide, irrevocable,
+   royalty-free, sublicensable right to use, reproduce, modify,
+   distribute and relicense your contribution, in whole or in part,
+   under any terms, including as closed-source software. This is required
+   so that the Owner may relicense the Software or make it closed-source
+   in the future.
+
+7. NO TRADEMARK RIGHTS
+   This License grants no rights to the Owner's names, logos or
+   trademarks.
+
+8. TERMINATION
+   The rights granted in Section 3 are revocable by the Owner at any time
+   by written notice, and terminate automatically upon any breach of this
+   License. Upon termination the Authorized Collaborator must stop all use
+   except the rights in Section 2. Sections 4, 5, 6, 7, 9 and 10 survive
+   termination.
+
+9. DISCLAIMER OF WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+
+10. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+
+Schedule A — Authorized Collaborators
+   * Falny (GitHub: @Falny)
+
