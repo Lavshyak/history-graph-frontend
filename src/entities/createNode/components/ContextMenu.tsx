@@ -9,6 +9,7 @@ type ContextMenuParams = {
 	onMouseLeave?: () => void
 	xSpawn: number
 	ySpawn: number
+	onClick: () => void
 }
 
 export function ContextMenu({

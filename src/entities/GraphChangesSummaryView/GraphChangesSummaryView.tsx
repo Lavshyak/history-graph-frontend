@@ -1,10 +1,8 @@
 import {Card} from "antd";
-import {memo, useContext, useEffect, useReducer, useRef, useState, useSyncExternalStore} from "react";
-import {NodeDatasStateManagerContext} from "../../../contexts/NodeDatasStateManagerContext.ts";
-import {EdgeDatasStateManagerContext} from "../../../contexts/EdgeDatasStateManagerContext.ts";
-import type {NodeData, NodeDataIdType} from "../../../types/NodeData.ts";
-import {useEventHandling} from "../../../hooks/useEventHandling.ts";
-import {createRoot} from "react-dom/client";
+import {memo, useContext, useReducer, useRef} from "react";
+import {NodeDatasStateManagerContext} from "../../contexts/NodeDatasStateManagerContext.ts";
+import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
+import {useEventHandling} from "../../hooks/useEventHandling.ts";
 
 // ну тут реально memo полезное
 export const GraphChangesSummaryView = memo(GraphChangesSummaryView1)

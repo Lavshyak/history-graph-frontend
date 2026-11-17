@@ -1,63 +1,46 @@
-import {
-    useCallback,
-    useContext,
-    useEffect,
-    useRef,
-    useState,
-    memo,
-} from 'react'
+import * as React from 'react'
+import {memo, useCallback, useContext, useRef, useState} from 'react'
 import '@xyflow/react/dist/style.css'
-import {Button, Divider, Flex, Space, Switch, Splitter} from 'antd'
+import {Button, Divider, Flex, Space, Splitter, Switch} from 'antd'
 import {ContextMenu} from '../../createNode/components/ContextMenu.tsx'
 import "./AllViewXyflow.css";
 import sort from '../../../assets/sort.svg'
 import PanelForSortAndSearch from '../../PanelForSortAndSearch/components/PanelForSortAndSearch.tsx'
 
 import {
-    applyEdgeChanges,
-    applyNodeChanges,
     Background,
+    ControlButton,
     Controls,
-    type EdgeChange,
     type FinalConnectionState,
-    type NodeChange,
+    MarkerType,
     ReactFlow,
     useReactFlow,
     type Viewport,
     type XYPosition,
-    MarkerType,
-    ControlButton,
 } from '@xyflow/react'
 
+import type {ContextMenuParams, NodeDataIdType, XfEdge, XfNode,} from '../../index.ts'
 import {
-    NodeDatasStateManagerContext,
+    CustomConnectionLine,
     EdgeDatasStateManagerContext,
-    GraphDataHasChangesContext,
-    ForceRerenderContext,
-    useLocalState,
-    useEventHandling,
-    useGetHistoryGetall,
-    devDtoEventsAndRelationshipsMock,
-    prettifyGraph,
-    EditableContext,
     EdgeLabelLayoutProvider,
+    EditableContext,
     EventNode,
     FloatingEdge,
-    CustomConnectionLine,
-} from '../../index.ts'
-
-import type {
-    NodeDataIdType,
-    XfNode,
-    XfEdge,
-    EdgeDataIdType,
-    NodeSourceData,
-    EdgeSourceData,
-    ContextMenuParams,
+    ForceRerenderContext,
+    GraphDataHasChangesContext,
+    NodeDatasStateManagerContext,
+    useEventHandling,
+    useGetHistoryGetall,
 } from '../../index.ts'
 
 import {useToggleStore} from '../../../store/toggleState.ts'
-import GraphChangesSummaryView from "./GraphChangesSummaryView.tsx";
+import GraphChangesSummaryView from "../../GraphChangesSummaryView/GraphChangesSummaryView.tsx";
+import {useXfNodesLocalState} from "../hooks/UseXfNodesLocalState.tsx";
+import {useXfEdgesLocalState} from "../hooks/UseXfEdgesLocalState.tsx";
+import {useOnNodeContextMenuCallback} from "../hooks/UseOnNodeContextMenuCallback.tsx";
+import {useOnNodesChangeRaf} from "../hooks/UseOnNodesChangeRaf.tsx";
+import {useInitializeEffect} from "../hooks/UseInitializeEffect.tsx";
 
 const connectionLineStyle = {
     stroke: '#b1b1b7',
@@ -99,162 +82,29 @@ const AllViewXyflow = memo(function AllViewXyflow() {
         new Map<NodeDataIdType, XYPosition>(),
     ).current
 
-    const {xfNodes, addXfNode, applyXfNodeChanges} = useLocalState<{
-        xfNodes: readonly Readonly<XfNode>[]
-        addXfNode(nodeId: NodeDataIdType): void
-        removeXfNode(nodeId: NodeDataIdType): void
-        applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]): void
-    }>((set, get) => ({
-        xfNodes: [],
-        addXfNode(nodeId: NodeDataIdType) {
-            let position = recommendedNodePositionsOnAdd.get(nodeId)
-            if (!position) {
-                console.log(98)
-                const nodeData = nodeDatasStateManager.allNodeDatasMap.get(nodeId)
-                console.log('nodeData ', nodeData)
-                if (nodeData) {
-                    if (nodeData.advisoryPosition) {
-                        position = {x: 0, y: 0}
-                        if (nodeData.advisoryPosition.x) {
-                            position.x = nodeData.advisoryPosition.x
-                        }
-                        if (nodeData.advisoryPosition.y) {
-                            position.y = nodeData.advisoryPosition.y
-                        }
-                    }
-                }
-            }
-            if (!position) {
-                console.log(114)
-                position = {x: 0, y: 0}
-            }
+    const {
+        xfNodes,
+        addXfNode,
+        applyXfNodeChanges
+    } = useXfNodesLocalState(recommendedNodePositionsOnAdd, nodeDatasStateManager);
 
-            console.log('position ', position)
+    const {xfEdges, addXfEdge, removeXfEdge, applyXfEdgeChanges} = useXfEdgesLocalState(edgeDatasStateManager)
 
-            set(state => ({
-                xfNodes: [
-                    ...state.xfNodes,
-                    {id: nodeId, data: {}, position: position, type: 'EventNode'},
-                ],
-            }))
-        },
-        removeXfNode(nodeId: NodeDataIdType) {
-            set(state => ({
-                xfNodes: state.xfNodes.filter(x => x.id !== nodeId),
-            }))
-        },
-        applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) {
-            const currentNodes = get().xfNodes
-            const newNodes = applyNodeChanges(nodeChanges, currentNodes as XfNode[])
-            set({
-                xfNodes: newNodes,
-            })
-        },
-    }))
-
-    const {xfEdges, addXfEdge, removeXfEdge, applyXfEdgeChanges} =
-        useLocalState<{
-            xfEdges: readonly Readonly<XfEdge>[]
-            addXfEdge(edgeId: EdgeDataIdType): void
-            removeXfEdge(edgeId: EdgeDataIdType): void
-            applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]): void
-        }>((set, get) => ({
-            xfEdges: [],
-            addXfEdge(edgeId: EdgeDataIdType) {
-                set(state => {
-                    const edgeData = edgeDatasStateManager.allEdgeDatasMap.get(edgeId)
-                    if (!edgeData)
-                        throw new Error(`edgeData not found for edgeId ${edgeId}`)
-                    return {
-                        ...state,
-                        xfEdges: [
-                            ...state.xfEdges,
-                            {
-                                id: edgeId,
-                                source: edgeData.sourceData.fromId,
-                                target: edgeData.sourceData.toId,
-                                type: 'FloatingEdge',
-                            },
-                        ],
-                    }
-                })
-            },
-            removeXfEdge(edgeId: EdgeDataIdType) {
-                set(state => ({
-                    xfEdges: state.xfEdges.filter(x => x.id !== edgeId),
-                }))
-            },
-            applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]) {
-                const currentEdges = get().xfEdges
-                const newEdges = applyEdgeChanges(changes, currentEdges as XfEdge[])
-                set({
-                    xfEdges: newEdges,
-                })
-            },
-        }))
 
     const getAllQuery = useGetHistoryGetall()
 
-    const initialized = useRef(false)
+    const isInitialized = useRef(false)
 
-    const frameRef = useRef<number | null>(null)
-
-    const onNodesChangeRaf = useCallback(
-        (changes: NodeChange<XfNode>[]) => {
-            const positionChanges = changes.filter(
-                change => change.type === 'position',
-            )
-            if (positionChanges.length > 0) {
-                if (frameRef.current === null) {
-                    frameRef.current = requestAnimationFrame(() => {
-                        applyXfNodeChanges(positionChanges)
-                        frameRef.current = null
-                    })
-                }
-            }
-
-            const otherChanges = changes.filter(change => change.type !== 'position')
-            if (otherChanges.length > 0) {
-                applyXfNodeChanges(otherChanges)
-            }
-        },
-        [applyXfNodeChanges],
-    )
+    const onNodesChangeRaf = useOnNodesChangeRaf(applyXfNodeChanges)
 
     const reactFlowInstance = useReactFlow()
     const [viewport, setViewport] = useState<Viewport>({x: 0, y: 0, zoom: 1})
-    const ref = useRef<HTMLDivElement>(null)
+    const reactFlowComponentRef = useRef<HTMLDivElement>(null)
     const [menu, setMenu] = useState<ContextMenuParams | null>(null)
-    const onNodeContextMenu = useCallback(
-        (event: React.MouseEvent | MouseEvent) => {
-            // Prevent native context menu from showing
-            event.preventDefault()
-            console.log('onNodeContextMenu event ', event)
+    const onNodeContextMenu = useOnNodeContextMenuCallback(
+        reactFlowComponentRef, reactFlowInstance,
+        viewport, setMenu)
 
-            // Calculate position of the context menu. We want to make sure it
-            // doesn't get positioned off-screen.
-            const pane = ref.current.getBoundingClientRect()
-            console.log(
-                'onNodeContextMenu ref.current.getBoundingClientRect() ',
-                ref.current.getBoundingClientRect(),
-            )
-            console.log('onNodeContextMenu viewport ', viewport)
-
-            const flowXY = reactFlowInstance.screenToFlowPosition({
-                x: event.pageX,
-                y: event.pageY,
-            })
-            const menu = {
-                id: 'contextMenu1',
-                top: event.pageY - pane.top,
-                left: event.pageX - pane.left,
-                xSpawn: flowXY.x - 100,
-                ySpawn: flowXY.y - 100,
-            }
-            setMenu(menu)
-        },
-        [reactFlowInstance, viewport],
-    )
     // Close the context menu if it's open whenever the window is clicked.
     const onPaneClick = useCallback(() => setMenu(null), [setMenu])
 
@@ -272,57 +122,9 @@ const AllViewXyflow = memo(function AllViewXyflow() {
         },
     )
 
-    useEffect(() => {
-        if (initialized.current) return
-        initialized.current = true
-
-        const rawData = getAllQuery.data?.data ?? devDtoEventsAndRelationshipsMock
-
-        if (!rawData.events.length) return
-
-        const newNodeSourceDatas: NodeSourceData[] = rawData.events.map(n => ({
-            description: n.description,
-            label: 'label',
-            keywords: n.keywords,
-            timeFrom: n.timeFrom,
-            timeTo: n.timeTo,
-            title: n.title,
-            id: n.id,
-        }))
-
-        const newEdgeSourceDatas: EdgeSourceData[] = rawData.relationships.map(
-            r => ({
-                id: r.id.toString(),
-                label: r.label,
-                fromId: r.fromId.toString(),
-                toId: r.toId.toString(),
-            }),
-        )
-
-        prettifyGraph(
-            newNodeSourceDatas.map(nsd => nsd.id),
-            newEdgeSourceDatas.map(esd => ({
-                id: esd.id,
-                source: esd.fromId,
-                target: esd.toId,
-            })),
-        ).then(nodeIdsPositions => {
-            nodeIdsPositions.forEach(idAndPosition => {
-                recommendedNodePositionsOnAdd.set(
-                    idAndPosition.nodeId,
-                    idAndPosition.position,
-                )
-            })
-
-            newNodeSourceDatas.forEach(nodeSourceData => {
-                nodeDatasStateManager.addNodeFromSource(nodeSourceData)
-            })
-
-            newEdgeSourceDatas.forEach(edgeSourceData => {
-                edgeDatasStateManager.addEdgeFromSource(edgeSourceData)
-            })
-        })
-    }, [])
+    useInitializeEffect(isInitialized, getAllQuery,
+        recommendedNodePositionsOnAdd,
+        nodeDatasStateManager, edgeDatasStateManager)
 
     console.log('viewport:', viewport);
 
@@ -344,7 +146,7 @@ const AllViewXyflow = memo(function AllViewXyflow() {
                                     <EditableContext.Provider value={isEditable}>
                                         <EdgeLabelLayoutProvider>
                                             <ReactFlow
-                                                ref={ref}
+                                                ref={reactFlowComponentRef}
                                                 viewport={viewport}
                                                 onViewportChange={v => setViewport(v)}
                                                 nodes={xfNodes as XfNode[]}
