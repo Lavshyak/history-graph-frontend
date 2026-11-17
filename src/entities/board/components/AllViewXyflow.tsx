@@ -79,6 +79,9 @@ const defaultEdgeOptions = {
 }
 
 const AllViewXyflow = memo(function AllViewXyflow() {
+    const rendersCount = useRef(0);
+    rendersCount.current += 1
+
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
     const graphHasChanges = useContext(GraphDataHasChangesContext)
@@ -328,6 +331,10 @@ const AllViewXyflow = memo(function AllViewXyflow() {
             <Splitter.Panel collapsible={{start: true, end: true, showCollapsibleIcon: true}} min="20%"
                             defaultSize="80%">
                 <div style={{}}>
+                    <div style={{color: 'white'}}>
+                        rerendersCount: {rendersCount.current}
+                    </div>
+
                     <Flex vertical style={{alignItems: 'center'}}>
                         <div style={{alignItems: 'stretch'}}>
                             <div
