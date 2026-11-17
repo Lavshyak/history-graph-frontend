@@ -3,6 +3,8 @@ import {
 	getStraightPath,
 } from '@xyflow/react'
 import type { XfNode } from '../../index'
+import RenderCountView from "../../../devOnly/RenderCountView.tsx";
+import useRenderCountLogging from "../../../devOnly/useRenderCountLogging.tsx";
 
 function CustomConnectionLine({
 	fromX,
@@ -11,7 +13,7 @@ function CustomConnectionLine({
 	toY,
 	connectionLineStyle,
 }: ConnectionLineComponentProps<XfNode>) {
-	console.log('CustomConnectionLine rendering')
+	useRenderCountLogging("CustomConnectionLine")
 
 	const [edgePath] = getStraightPath({
 		sourceX: fromX,

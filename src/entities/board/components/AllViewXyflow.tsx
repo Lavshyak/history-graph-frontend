@@ -41,6 +41,8 @@ import {useXfEdgesLocalState} from "../hooks/UseXfEdgesLocalState.tsx";
 import {useOnNodeContextMenuCallback} from "../hooks/UseOnNodeContextMenuCallback.tsx";
 import {useOnNodesChangeRaf} from "../hooks/UseOnNodesChangeRaf.tsx";
 import {useInitializeEffect} from "../hooks/UseInitializeEffect.tsx";
+import useRenderCountLogging from "../../../devOnly/useRenderCountLogging.tsx";
+import RenderCountView from "../../../devOnly/RenderCountView.tsx";
 
 const connectionLineStyle = {
     stroke: '#b1b1b7',
@@ -64,6 +66,8 @@ const defaultEdgeOptions = {
 const AllViewXyflow = memo(function AllViewXyflow() {
     const rendersCount = useRef(0);
     rendersCount.current += 1
+
+    useRenderCountLogging("AllViewXyflow")
 
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
@@ -133,9 +137,7 @@ const AllViewXyflow = memo(function AllViewXyflow() {
             <Splitter.Panel collapsible={{start: true, end: true, showCollapsibleIcon: true}} min="20%"
                             defaultSize="80%">
                 <div style={{}}>
-                    <div style={{color: 'white'}}>
-                        rerendersCount: {rendersCount.current}
-                    </div>
+                    <RenderCountView/>
 
                     <Flex vertical style={{alignItems: 'center'}}>
                         <div style={{alignItems: 'stretch'}}>
@@ -179,6 +181,7 @@ const AllViewXyflow = memo(function AllViewXyflow() {
                                                 }}
                                                 connectOnClick={false}
                                             >
+                                                <RenderCountView/>
                                                 {JSON.stringify(viewport)}
                                                 <Controls showInteractive={true}>
                                                     <ControlButton
@@ -243,11 +246,13 @@ const AllViewXyflow = memo(function AllViewXyflow() {
                                 update
                             </button>
                             <button onClick={() => forceRerender()}>force rerender</button>
+                            <RenderCountView/>
                         </div>
                     </Flex>
                 </div>
             </Splitter.Panel>
             <Splitter.Panel collapsible>
+                <RenderCountView/>
                 <GraphChangesSummaryView/>
             </Splitter.Panel>
         </Splitter>

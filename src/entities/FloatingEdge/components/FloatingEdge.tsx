@@ -6,9 +6,9 @@ import {
 } from '@xyflow/react'
 
 import {
-	type CSSProperties,
+	type CSSProperties, memo,
 	useContext,
-	useLayoutEffect,
+	useLayoutEffect, useMemo,
 	useRef,
 	useState,
 } from 'react'
@@ -26,8 +26,16 @@ import {
 	getEdgeParams,
 	getSpecialPath,
 } from '../../index'
+import RenderCountView from "../../../devOnly/RenderCountView.tsx";
+import {createRenderCountDict} from "../../../devOnly/useRenderCountDictRef.tsx";
 
-function FloatingEdge({
+const FloatingEdge = memo(FloatingEdge1)
+
+export default FloatingEdge
+
+const {increaseRenderCountDict, renderCountDictView} = createRenderCountDict()
+
+function FloatingEdge1({
 	id: thisEdgeId,
 	source,
 	target,
@@ -118,7 +126,9 @@ function FloatingEdge({
 		)
 		return getEdgeParams(sorted[0], sorted[1])
 	})()
-	const { path, pathDisplay, labelX, labelY } = getSpecialPath(
+	const { path, pathDisplay, labelX, labelY } = useMemo(()=>{
+			increaseRenderCountDict("getSpecialPath", {sx, sy})
+		return getSpecialPath(
 		{
 			sourceX: sx,
 			sourceY: sy,
@@ -128,7 +138,8 @@ function FloatingEdge({
 		pathDelta,
 		deltaMultiplier,
 		extraOffset,
-	)
+	)},
+		[sx, sy])
 
 	const strokeColor = (() => {
 		if (isGenerallyMarkedForDelete) return '#ff000044'
@@ -181,11 +192,24 @@ function FloatingEdge({
 								{
 									label: (
 										<Flex vertical>
+											{renderCountDictView()}
+											<RenderCountView/>
 											<div>{pathDelta}</div>
 											<div>{extraOffset}</div>
 											<div>{pathDisplay}</div>
 											<div>{currentData.label}</div>
 											<div>{currentData.id}</div>
+											{
+												currentData.id === "r1" && <div>
+													{JSON.stringify({id: thisEdgeId,
+														source,
+														target,
+														markerEnd,
+														style,
+													})
+														}
+												</div>
+											}
 										</Flex>
 									),
 									children: (
@@ -219,5 +243,3 @@ function FloatingEdge({
 		</>
 	)
 }
-
-export default FloatingEdge

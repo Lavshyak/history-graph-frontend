@@ -8,6 +8,7 @@ import {
 	useKeyedEventHandling,
 	EditableContext,
 } from '../../index'
+import RenderCountView from "../../../devOnly/RenderCountView.tsx";
 
 const sourceHandleStyle: CSSProperties = {
 	width: '100%',
@@ -122,6 +123,7 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 								{
 									label: (
 										<Flex vertical>
+											<RenderCountView/>
 											<div>
 												title:{' '}
 												<input
