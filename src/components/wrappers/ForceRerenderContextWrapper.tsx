@@ -1,8 +1,10 @@
 import type {ReactNode} from "react";
 import {useLocalState} from "../../hooks/UseLocalState.ts";
 import {ForceRerenderContext, type ForceRerenderContextType} from "../../contexts/ForceRerenderContext.ts";
+import useDevRenderCountLogging from "../../devOnly/useRenderCountLogging.tsx";
 
 export function ForceRerenderContextWrapper({children}: { children: ReactNode }) {
+    useDevRenderCountLogging("ForceRerenderContextWrapper")
     const value = useLocalState<ForceRerenderContextType>((setState, getState, store) => ({
         forcedRerenderValue: 0,
         forceRerender: () => {

@@ -43,6 +43,7 @@ import {useOnNodesChangeRaf} from "../hooks/UseOnNodesChangeRaf.tsx";
 import {useInitializeEffect} from "../hooks/UseInitializeEffect.tsx";
 import useRenderCountLogging from "../../../devOnly/useRenderCountLogging.tsx";
 import RenderCountView from "../../../devOnly/RenderCountView.tsx";
+import devInvokeIfDevLoggingEnabled from "../../../devOnly/devInvokeIfDevLoggingEnabled.ts";
 
 const connectionLineStyle = {
     stroke: '#b1b1b7',
@@ -64,8 +65,6 @@ const defaultEdgeOptions = {
 }
 
 const AllViewXyflow = memo(function AllViewXyflow() {
-    const rendersCount = useRef(0);
-    rendersCount.current += 1
 
     useRenderCountLogging("AllViewXyflow")
 
@@ -130,7 +129,7 @@ const AllViewXyflow = memo(function AllViewXyflow() {
         recommendedNodePositionsOnAdd,
         nodeDatasStateManager, edgeDatasStateManager)
 
-    console.log('viewport:', viewport);
+    devInvokeIfDevLoggingEnabled(()=> console.log('viewport:', viewport));
 
     return (
         <Splitter className="all-view-splitter" style={{boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'}}>

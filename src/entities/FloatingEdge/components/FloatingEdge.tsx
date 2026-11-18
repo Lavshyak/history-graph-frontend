@@ -16,6 +16,7 @@ import {
 import RenderCountView from "../../../devOnly/RenderCountView.tsx";
 import {createRenderCountDict} from "../../../devOnly/useRenderCountDictRef.tsx";
 import {useEdgeLayoutGetterByIdContext} from "../../../contexts/EdgeLayoutGetterByIdContext.tsx";
+import devInvokeIfDevLoggingEnabled from "../../../devOnly/devInvokeIfDevLoggingEnabled.ts";
 
 const FloatingEdge = memo(FloatingEdge1)
 
@@ -32,7 +33,8 @@ function FloatingEdge1(props: EdgeProps<XfEdge>) {
 	} = props
 
 	const {increaseRenderCountDict, renderCountDictView} = useRef(createRenderCountDict()).current
-	console.log(`edgeRendering ${thisEdgeId}`)
+	devInvokeIfDevLoggingEnabled(()=>console.log(`edgeRendering ${thisEdgeId}`))
+
 	const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
 
 	const [data, setData] = useState(

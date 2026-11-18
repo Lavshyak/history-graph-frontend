@@ -3,8 +3,10 @@ import {NodeDatasStateManagerContext} from "../../contexts/NodeDatasStateManager
 import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
 import {useEventHandling} from "../../hooks/useEventHandling.ts";
 import {GraphDataHasChangesContext} from "../../contexts/GraphDataHasChangesContext.ts";
+import useDevRenderCountLogging from "../../devOnly/useRenderCountLogging.tsx";
 
 export function GraphDataHasChangesContextWrapper({children}: { children: ReactNode }) {
+    useDevRenderCountLogging("GraphDataHasChangesContextWrapper")
     const [hasChanges, setHasChanges] = useState<boolean>(false);
 
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
