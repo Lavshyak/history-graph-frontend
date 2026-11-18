@@ -24,6 +24,7 @@ export function ContextMenu({
 	const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 	const isEditable = useContext(EditableContext)
 
+
 	return (
 		<div
 			onMouseLeave={onMouseLeave}

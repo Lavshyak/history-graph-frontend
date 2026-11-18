@@ -34,16 +34,16 @@ import {
     useGetHistoryGetall,
 } from '../../index.ts'
 
-import {useToggleStore} from '../../../store/toggleState.ts'
-import GraphChangesSummaryView from "../../GraphChangesSummaryView/GraphChangesSummaryView.tsx";
-import {useXfNodesLocalState} from "../hooks/UseXfNodesLocalState.tsx";
-import {useXfEdgesLocalState} from "../hooks/UseXfEdgesLocalState.tsx";
-import {useOnNodeContextMenuCallback} from "../hooks/UseOnNodeContextMenuCallback.tsx";
-import {useOnNodesChangeRaf} from "../hooks/UseOnNodesChangeRaf.tsx";
-import {useInitializeEffect} from "../hooks/UseInitializeEffect.tsx";
-import useRenderCountLogging from "../../../devOnly/useRenderCountLogging.tsx";
-import RenderCountView from "../../../devOnly/RenderCountView.tsx";
-import devInvokeIfDevLoggingEnabled from "../../../devOnly/devInvokeIfDevLoggingEnabled.ts";
+import { useToggleStore } from '../../../store/toggleState.ts'
+import GraphChangesSummaryView from '../../GraphChangesSummaryView/GraphChangesSummaryView.tsx'
+import { useXfNodesLocalState } from '../hooks/UseXfNodesLocalState.tsx'
+import { useXfEdgesLocalState } from '../hooks/UseXfEdgesLocalState.tsx'
+import { useOnNodeContextMenuCallback } from '../hooks/UseOnNodeContextMenuCallback.tsx'
+import { useOnNodesChangeRaf } from '../hooks/UseOnNodesChangeRaf.tsx'
+import { useInitializeEffect } from '../hooks/UseInitializeEffect.tsx'
+import useRenderCountLogging from '../../../devOnly/useRenderCountLogging.tsx'
+import RenderCountView from '../../../devOnly/RenderCountView.tsx'
+import devInvokeIfDevLoggingEnabled from '../../../devOnly/devInvokeIfDevLoggingEnabled.ts'
 
 const connectionLineStyle = {
     stroke: '#b1b1b7',
@@ -64,7 +64,7 @@ const defaultEdgeOptions = {
     },
 }
 
-const AllViewXyflow = memo(function AllViewXyflow() {
+function AllViewXyflow() {
 
     useRenderCountLogging("AllViewXyflow")
 
@@ -256,6 +256,6 @@ const AllViewXyflow = memo(function AllViewXyflow() {
             </Splitter.Panel>
         </Splitter>
     )
-})
+}
 
 export default AllViewXyflow
