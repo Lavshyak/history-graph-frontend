@@ -4,8 +4,10 @@ import {createNormalEvent} from "../../lib/event.ts";
 import type {NodeDataIdType} from "../../types/NodeData.ts";
 import {createEdgeDatasStateManager} from "../../coolerState/coolerEdgesState.ts";
 import {EdgeDatasStateManagerContext} from "../../contexts/EdgeDatasStateManagerContext.ts";
+import useDevRenderCountLogging from "../../devOnly/useRenderCountLogging.tsx";
 
 export function EdgeDatasStateManagerContextWrapper({children}: { children: ReactNode }) {
+    useDevRenderCountLogging("EdgeDatasStateManagerContextWrapper")
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 
     const edgeDatasStateManager = useRef(
