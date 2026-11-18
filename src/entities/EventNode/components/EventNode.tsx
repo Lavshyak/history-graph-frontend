@@ -8,7 +8,7 @@ import {
 	useKeyedEventHandling,
 	EditableContext,
 } from '../../index'
-import RenderCountView from "../../../devOnly/RenderCountView.tsx";
+import RenderCountView from '../../../devOnly/RenderCountView.tsx'
 
 const sourceHandleStyle: CSSProperties = {
 	width: '100%',
@@ -41,6 +41,8 @@ const styleEditableFieldInNode: CSSProperties = {
 	border: 'none',
 	color: 'black',
 	outline: 'none',
+	padding: '0',
+	fontSize: '14px',
 	fontFamily: 'system-ui, Avenir, Helvetica, Arial, sans-serif',
 }
 
@@ -68,6 +70,17 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 		nodeDatasStateContext.updateNodeData(thisNodeId, {
 			[editableField]: editString,
 		})
+	}
+
+	const handleSaveEdit = (
+		e: React.KeyboardEvent<HTMLElement>,
+		editableField: string,
+	) => {
+		e.stopPropagation()
+		if (e.key === 'Enter') {
+			setIsEdit(false)
+			handleChangeEditEventNode(editableField, e.target.value)
+		}
 	}
 
 	useKeyedEventHandling(
@@ -123,21 +136,27 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 								{
 									label: (
 										<Flex vertical>
-											<RenderCountView/>
-											<div>
+											<RenderCountView />
+											<div style={{ textAlign: 'start' }}>
 												title:{' '}
-												<input
-													style={styleEditableFieldInNode}
-													type='text'
-													disabled={!isEdit}
-													value={data.currentData.title}
-													onChange={event =>
-														handleChangeEditEventNode(
-															'title',
-															event.target.value,
-														)
-													}
-												/>
+												{isEdit ? (
+													<input
+														style={styleEditableFieldInNode}
+														type='text'
+														value={data.currentData.title}
+														onChange={event =>
+															handleChangeEditEventNode(
+																'title',
+																event.target.value,
+															)
+														}
+														onKeyDown={e => handleSaveEdit(e, 'title')}
+													/>
+												) : (
+													<span style={styleEditableFieldInNode}>
+														{data.currentData.title}
+													</span>
+												)}
 											</div>
 											<div style={{ fontSize: 11, textAlign: 'start' }}>
 												id: {thisNodeId}
@@ -145,76 +164,105 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 										</Flex>
 									),
 									children: (
-										<Flex vertical>
+										<Flex vertical align='flex-start'>
 											<div>
 												description:
-												<input
-													style={styleEditableFieldInNode}
-													type='text'
-													disabled={!isEdit}
-													value={data.currentData.description}
-													onChange={event =>
-														handleChangeEditEventNode(
-															'description',
-															event.target.value,
-														)
-													}
-												/>
+												{isEdit ? (
+													<input
+														style={styleEditableFieldInNode}
+														type='text'
+														disabled={!isEdit}
+														value={data.currentData.description}
+														onChange={event =>
+															handleChangeEditEventNode(
+																'description',
+																event.target.value,
+															)
+														}
+														onKeyDown={e => handleSaveEdit(e, 'description')}
+													/>
+												) : (
+													<span style={styleEditableFieldInNode}>
+														{data.currentData.description}
+													</span>
+												)}
 											</div>
 											<div>
 												label:{' '}
-												<input
-													style={styleEditableFieldInNode}
-													type='text'
-													disabled={!isEdit}
-													value={data.currentData.label}
-													onChange={event =>
-														handleChangeEditEventNode(
-															'label',
-															event.target.value,
-														)
-													}
-												/>
+												{isEdit ? (
+													<input
+														style={styleEditableFieldInNode}
+														type='text'
+														disabled={!isEdit}
+														value={data.currentData.label}
+														onChange={event =>
+															handleChangeEditEventNode(
+																'label',
+																event.target.value,
+															)
+														}
+														onKeyDown={e => handleSaveEdit(e, 'label')}
+													/>
+												) : (
+													<span style={styleEditableFieldInNode}>
+														{data.currentData.label}
+													</span>
+												)}
 											</div>
 											<div>
 												keywords:
-												<input
-													style={styleEditableFieldInNode}
-													type='text'
-													disabled={!isEdit}
-													value={`[${data.currentData.keywords}]`}
-													onChange={event =>
-														handleChangeEditEventNode(
-															'keywords',
-															event.target.value.replace(/[\[\]]/g, ''),
-														)
-													}
-												/>
+												{isEdit ? (
+													<input
+														style={styleEditableFieldInNode}
+														type='text'
+														disabled={!isEdit}
+														value={`[${data.currentData.keywords}]`}
+														onChange={event =>
+															handleChangeEditEventNode(
+																'keywords',
+																event.target.value.replace(/[\[\]]/g, ''),
+															)
+														}
+														onKeyDown={e => handleSaveEdit(e, 'keywords')}
+													/>
+												) : (
+													<span style={styleEditableFieldInNode}>
+														{`[${data.currentData.keywords}]`}
+													</span>
+												)}
 											</div>
 											<div>
 												timeFrom: {data.currentData.timeFrom.toISOString()}
 											</div>
 											<div>timeTo: {data.currentData.timeTo.toISOString()}</div>
 											<div>sourceOrCreated: {data.sourceOrCreated}</div>
-											<Button
-												disabled={!isEditable}
-												onClick={() => {
-													nodeDatasStateContext.markNodeForDelete(
-														thisNodeId,
-														!data.isExplicitlyMarkedForDelete,
-													)
+											<div
+												style={{
+													display: 'flex',
+													flexDirection: 'column',
+													width: '100%',
 												}}
 											>
-												{data.isExplicitlyMarkedForDelete
-													? 'undo delete'
-													: 'delete'}
-											</Button>
-											<Button
-												style={{ marginTop: '0.5rem' }}
-												onClick={() => setIsEdit(!isEdit)}
-											>
-												{isEdit ? 'save' : 'edit'}
-											</Button>
+												<Button
+													disabled={!isEditable}
+													onClick={() => {
+														nodeDatasStateContext.markNodeForDelete(
+															thisNodeId,
+															!data.isExplicitlyMarkedForDelete,
+														)
+													}}
+												>
+													{data.isExplicitlyMarkedForDelete
+														? 'undo delete'
+														: 'delete'}
+												</Button>
+												<Button
+													style={{ marginTop: '0.5rem' }}
+													onClick={() => setIsEdit(!isEdit)}
+												>
+													{isEdit ? 'save' : 'edit'}
+												</Button>
+											</div>
 										</Flex>
 									),
 								},
