@@ -1,47 +1,37 @@
-import {
-	BaseEdge,
-	EdgeLabelRenderer,
-	type EdgeProps,
-	useInternalNode,
-} from '@xyflow/react'
+import {BaseEdge, EdgeLabelRenderer, type EdgeProps, useInternalNode,} from '@xyflow/react'
 
-import {
-	type CSSProperties, memo,
-	useContext,
-	useLayoutEffect, useMemo,
-	useRef,
-	useState,
-} from 'react'
+import {memo, useContext, useLayoutEffect, useMemo, useRef, useState,} from 'react'
 
-import { Button, Collapse, Flex } from 'antd'
+import {Button, Collapse, Flex} from 'antd'
 
-import type { XfEdge } from '../../index'
-
+import type {XfEdge} from '../../index'
 import {
 	EdgeDatasStateManagerContext,
-	useKeyedEventHandling,
-	EditableContext,
-	EdgeLabelLayoutContext,
 	EdgeLabelSizeContext,
+	EditableContext,
 	getEdgeParams,
 	getSpecialPath,
+	useKeyedEventHandling,
 } from '../../index'
 import RenderCountView from "../../../devOnly/RenderCountView.tsx";
 import {createRenderCountDict} from "../../../devOnly/useRenderCountDictRef.tsx";
+import {useEdgeLayoutGetterByIdContext} from "../../../contexts/EdgeLayoutGetterByIdContext.tsx";
 
 const FloatingEdge = memo(FloatingEdge1)
 
 export default FloatingEdge
 
-const {increaseRenderCountDict, renderCountDictView} = createRenderCountDict()
+function FloatingEdge1(props: EdgeProps<XfEdge>) {
 
-function FloatingEdge1({
-	id: thisEdgeId,
-	source,
-	target,
-	markerEnd,
-	style,
-}: EdgeProps<XfEdge>) {
+	const {
+		id: thisEdgeId,
+			source,
+			target,
+			markerEnd,
+			style,
+	} = props
+
+	const {increaseRenderCountDict, renderCountDictView} = useRef(createRenderCountDict()).current
 	console.log(`edgeRendering ${thisEdgeId}`)
 	const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
 
@@ -86,8 +76,12 @@ function FloatingEdge1({
 
 	const sourceNode = useInternalNode(source)
 	const targetNode = useInternalNode(target)
+
 	const isEditable = useContext(EditableContext)
-	const edgeLabelLayout = useContext(EdgeLabelLayoutContext)
+	//const edgeLabelLayout = useContext(EdgeLabelLayoutContext)
+
+	//increaseRenderCountDict("FloatingEdge1", {edgeLabelLayout_DevObjectId: devGetOrSetObjectId(edgeLabelLayout)})
+
 	const { reportSize } = useContext(EdgeLabelSizeContext)
 
 	// Report the real rendered card size so the layout can separate cards using
@@ -113,7 +107,8 @@ function FloatingEdge1({
 		return () => observer.disconnect()
 	}, [thisEdgeId, reportSize])
 
-	const layoutEntry = edgeLabelLayout.get(thisEdgeId)
+	//const layoutEntry = edgeLabelLayout.get(thisEdgeId)
+	const layoutEntry = useEdgeLayoutGetterByIdContext().get(thisEdgeId)
 	const pathDelta = layoutEntry?.pathDelta ?? 0
 	const extraOffset = layoutEntry?.extraOffset ?? 0
 	const deltaMultiplier = layoutEntry?.deltaMultiplier ?? 300
@@ -122,12 +117,12 @@ function FloatingEdge1({
 		// без сортировки связи например с currentDelta 1 и -1 могли накладываться друг на друга, если ведут в разные стороны
 		// наверно какие-то математические приколы
 		const sorted = [sourceNode, targetNode].sort((a, b) =>
-			a?.id.localeCompare(b?.id),
+			a!.id.localeCompare(b!.id),
 		)
 		return getEdgeParams(sorted[0], sorted[1])
 	})()
 	const { path, pathDisplay, labelX, labelY } = useMemo(()=>{
-			increaseRenderCountDict("getSpecialPath", {sx, sy})
+			//increaseRenderCountDict("getSpecialPath", {sx, sy})
 		return getSpecialPath(
 		{
 			sourceX: sx,
@@ -139,6 +134,8 @@ function FloatingEdge1({
 		deltaMultiplier,
 		extraOffset,
 	)},
+		// просит указать остальные deps. не уверен, что в этом будет смысл
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[sx, sy])
 
 	const strokeColor = (() => {
@@ -194,12 +191,12 @@ function FloatingEdge1({
 										<Flex vertical>
 											{renderCountDictView()}
 											<RenderCountView/>
-											<div>{pathDelta}</div>
+											{/*<div>{pathDelta}</div>
 											<div>{extraOffset}</div>
-											<div>{pathDisplay}</div>
+											<div>{pathDisplay}</div>*/}
 											<div>{currentData.label}</div>
 											<div>{currentData.id}</div>
-											{
+											{/*{
 												currentData.id === "r1" && <div>
 													{JSON.stringify({id: thisEdgeId,
 														source,
@@ -209,7 +206,7 @@ function FloatingEdge1({
 													})
 														}
 												</div>
-											}
+											}*/}
 										</Flex>
 									),
 									children: (

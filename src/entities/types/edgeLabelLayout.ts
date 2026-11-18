@@ -2,6 +2,7 @@ import type { InternalNode } from '@xyflow/react'
 import { getEdgeParams } from './utils.ts'
 import { getSpecialPath } from './GetSpecialPath.ts'
 import type { XfEdge } from './XyFlowTypeAliases.ts'
+import devGetOrSetObjectId from "../../devOnly/ObjectId.tsx";
 
 // Fallback card size, used only until the real card has been measured for the
 // first time. The real size is adaptive and measured from the rendered card
@@ -281,6 +282,8 @@ export function computeEdgeLabelLayout(
 			deltaMultiplier: geometry.deltaMultiplier,
 		})
 	}
+
+	devGetOrSetObjectId(layout)
 
 	return layout
 }

@@ -3,7 +3,7 @@ import {
 	type ReactNode,
 	useCallback,
 	useContext,
-	useMemo,
+	useMemo, useRef,
 	useState,
 } from 'react'
 
@@ -14,6 +14,11 @@ import {
 	EdgeLabelLayoutContext,
 	EdgeLabelSizeContext,
 } from '../../index.ts'
+import {
+	EdgeLayoutGetterByIdContext,
+	type EdgeLayoutGetterByIdContextType
+} from "../../../contexts/EdgeLayoutGetterByIdContext.tsx";
+import type {EdgeLabelLayoutEntry} from "../../types/edgeLabelLayout.ts";
 
 type EdgeLabelLayoutProviderProps = {
 	children: ReactNode
@@ -22,7 +27,9 @@ type EdgeLabelLayoutProviderProps = {
 export function EdgeLabelLayoutProvider({
 	children,
 }: EdgeLabelLayoutProviderProps) {
+	// xyflow'воский стейт
 	const edges = useStore(state => state.edges as XfEdge[])
+
 	const nodeLookup = useStore(state => state.nodeLookup)
 	// Signature must react to both node positions AND their measured sizes,
 	// otherwise the layout keeps using stale/absent dimensions.
@@ -60,10 +67,20 @@ export function EdgeLabelLayoutProvider({
 		})
 	}, [])
 
+	const layoutMapRef = useRef<Map<string, EdgeLabelLayoutEntry>>(new Map());
+
 	const layout = useMemo(
-		() => computeEdgeLabelLayout(edges, nodeLookup, labelSizes),
+		() => {
+			const v = computeEdgeLabelLayout(edges, nodeLookup, labelSizes)
+			layoutMapRef.current = v
+			return v
+		},
 		[edges, nodeLookup, nodesSignature, forcedRerenderValue, labelSizes],
 	)
+
+	const edgeLayoutGetterById = useRef<EdgeLayoutGetterByIdContextType>({
+		get : (edgeId) => layoutMapRef.current.get(edgeId)
+	}).current
 
 	const sizeContextValue = useMemo(
 		() => ({ sizes: labelSizes, reportSize }),
@@ -71,10 +88,12 @@ export function EdgeLabelLayoutProvider({
 	)
 
 	return (
+		<EdgeLayoutGetterByIdContext.Provider value={edgeLayoutGetterById}>
 		<EdgeLabelSizeContext.Provider value={sizeContextValue}>
 			<EdgeLabelLayoutContext.Provider value={layout}>
 				{children}
 			</EdgeLabelLayoutContext.Provider>
 		</EdgeLabelSizeContext.Provider>
+		</EdgeLayoutGetterByIdContext.Provider>
 	)
 }

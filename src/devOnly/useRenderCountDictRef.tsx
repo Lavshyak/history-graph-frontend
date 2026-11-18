@@ -1,35 +1,46 @@
 import {useRef} from "react";
 
-export function useRenderCountDictRef(){
-    return useRef<{[context: string]: number}>({})
-}
-
-export function useRenderCountDictIncreasing(context: string){
-
-}
-
-export function createRenderCountDict(){
-    const dictionary : Map<string, {rc: number, deps?: never}> = new Map()
+export function createRenderCountDict(context?: string) {
+    const dictionary: Map<string, { rc: number, deps?: object }> = new Map()
 
     return {
-        increaseRenderCountDict: (context: string, deps? : never) => {
+        increaseRenderCountDict: (context: string, deps?: object) => {
             const value = dictionary.get(context)
-            if(value){
+            if (value) {
                 value.deps = deps
+                value.rc += 1
                 //dictionary.set(context, value+1)
-            } else{
-                dictionary.set(context, {rc:1, deps:value})
+            } else {
+                dictionary.set(context, {rc: 1, deps: value})
             }
 
         },
         renderCountDictView: () => <div>
-            ыы
-                {[...dictionary.entries()].map(entry => {
-                    return <div>
-                        {entry[0]}: {entry[1].rc} ({JSON.stringify(entry[1].deps)})
-                    </div>
-                })}
-            </div>
-
+            {[...dictionary.entries()].map(entry => {
+                return <div>
+                    {entry[0]}: {entry[1].rc} ({JSON.stringify(entry[1].deps)})
+                </div>
+            })}
+        </div>,
+        renderCountDictLogToConsole: () => {
+            if(context){
+                console.log("-- ", context, " --")
+            }
+            for (const entry of dictionary.entries()) {
+                console.log(`${entry[0]}: ${entry[1].rc} (${JSON.stringify(entry[1].deps)})`)
+            }
+        },
+        increaseRenderCountDictAndLogToConsole: () => {
+            if(context){
+                console.log("-- ", context, " --")
+            }
+            for (const entry of dictionary.entries()) {
+                console.log(`${entry[0]}: ${entry[1].rc} (${JSON.stringify(entry[1].deps)})`)
+            }
+        }
     }
+}
+
+export function useRenderCountDictRef(){
+    return useRef(createRenderCountDict()).current
 }
