@@ -1,8 +1,8 @@
 import * as React from 'react'
-import {memo, useCallback, useContext, useRef, useState} from 'react'
+import {useCallback, useContext, useRef, useState} from 'react'
 import '@xyflow/react/dist/style.css'
 import {Button, Divider, Flex, Space, Splitter, Switch} from 'antd'
-import {ContextMenu} from '../../createNode/components/ContextMenu.tsx'
+import {ContextMenu} from '../../ContextMenu/components/ContextMenu.tsx'
 import "./AllViewXyflow.css";
 import sort from '../../../assets/sort.svg'
 import PanelForSortAndSearch from '../../PanelForSortAndSearch/components/PanelForSortAndSearch.tsx'

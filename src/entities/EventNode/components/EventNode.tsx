@@ -79,6 +79,7 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 		e.stopPropagation()
 		if (e.key === 'Enter') {
 			setIsEdit(false)
+			// @ts-expect-error .value красное мол нет такого свойства там
 			handleChangeEditEventNode(editableField, e.target.value)
 		}
 	}
@@ -220,6 +221,8 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 														onChange={event =>
 															handleChangeEditEventNode(
 																'keywords',
+																// ругается на символ \. хз что это.
+																// eslint-disable-next-line no-useless-escape
 																event.target.value.replace(/[\[\]]/g, ''),
 															)
 														}
