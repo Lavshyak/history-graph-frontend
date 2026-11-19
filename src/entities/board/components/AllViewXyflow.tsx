@@ -154,6 +154,8 @@ function AllViewXyflow() {
                                                 edges={xfEdges as XfEdge[]}
                                                 onNodesChange={onNodesChangeRaf}
                                                 onEdgesChange={applyXfEdgeChanges}
+                                                minZoom={0.04} // максимальное отдаление
+                                                maxZoom={3} // максимальное приближение
                                                 fitView
                                                 nodeTypes={nodeTypesForXyflow}
                                                 edgeTypes={edgeTypes}
