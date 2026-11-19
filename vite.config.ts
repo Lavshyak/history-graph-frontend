@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath, URL } from 'node:url'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    // Regex (not a plain "@" key) so third-party scopes like @xyflow/@tanstack
+    // are never rewritten; only "@/..." specifiers map to src/.
+    alias: [
+      {
+        find: /^@\//,
+        replacement: fileURLToPath(new URL('./src/', import.meta.url)),
+      },
+    ],
+  },
   server: {
     // Bind to the IPv4 loopback explicitly.
     // Vite's default host ('localhost') resolves to ::1 first on Windows, and

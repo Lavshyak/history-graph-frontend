@@ -8,7 +8,7 @@ export default defineConfig({
         path: 'http://localhost:6513/openapi/v1.json'
     },
     output: {
-        path: './src/gen',
+        path: './src/api/generated',
         clean: true,
     },
     plugins: [
@@ -32,7 +32,7 @@ export default defineConfig({
             ],
             group: {
                 type: 'tag',
-                name: ({ group }) => `'${group}Controller`
+                name: ({ group }) => `${group}Controller`
             },
             enumType: "asConst",
             enumSuffix: 'Enum',
