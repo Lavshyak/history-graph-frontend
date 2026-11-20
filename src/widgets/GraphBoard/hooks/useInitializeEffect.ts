@@ -5,14 +5,27 @@ import type {DtoEventsAndRelationships} from '@/api/generated/types/DtoEventsAnd
 import type {XYPosition} from '@xyflow/react'
 import type {NodeDatasStateManager} from '@/model/node/createNodeDatasStateManager.ts'
 import type {EdgeDatasStateManager} from '@/model/edge/createEdgeDatasStateManager.ts'
-import {devDtoEventsAndRelationshipsMock} from '@/shared/mocks/devDtoEventsAndRelationshipsMock.ts'
 import type {NodeSourceData} from '@/model/node/nodeData.ts'
 import type {EdgeSourceData} from '@/model/edge/edgeData.ts'
 import {prettifyGraph} from '@/model/graph/prettifyGraph.ts'
+import {
+    generateDevGraph,
+    type DevGraphGeneratorParams,
+} from '@/shared/dev/generateDevGraph.ts'
 import type {
     ResponseConfig,
     ResponseErrorConfig,
 } from '@kubb/plugin-client/clients/axios'
+
+// Параметры dev графа: (source ноды, created ноды, source связи, created связи, seed).
+// Крути эти числа, когда хочется поиграться на графе побольше трёх нод.
+export const devGraphGeneratorParams: DevGraphGeneratorParams = {
+    sourceNodesCount: 40,
+    createdNodesCount: 15,
+    sourceEdgesCount: 60,
+    createdEdgesCount: 25,
+    randomSeed: 12345,
+}
 
 export function useInitializeEffect(
     isInitialized: React.RefObject<boolean>,
@@ -29,9 +42,22 @@ export function useInitializeEffect(
         if (isInitialized.current) return
         isInitialized.current = true
 
-        const rawData = getAllQuery.data?.data ?? devDtoEventsAndRelationshipsMock
+        const rawData = getAllQuery.data?.data
 
-        if (!rawData.events.length) return
+        // Нет данных с сервера — наполняем граф dev генератором.
+        if (!rawData || !rawData.events.length) {
+            void generateDevGraph(
+                devGraphGeneratorParams.sourceNodesCount,
+                devGraphGeneratorParams.createdNodesCount,
+                devGraphGeneratorParams.sourceEdgesCount,
+                devGraphGeneratorParams.createdEdgesCount,
+                devGraphGeneratorParams.randomSeed,
+                nodeDatasStateManager,
+                edgeDatasStateManager,
+                recommendedNodePositionsOnAdd,
+            ).then(() => fitViewAfterPaint(fitView))
+            return
+        }
 
         const newNodeSourceDatas: NodeSourceData[] = rawData.events
             .map(n => ({
@@ -78,12 +104,14 @@ export function useInitializeEffect(
             newEdgeSourceDatas.forEach(edgeSourceData => {
                 edgeDatasStateManager.addEdgeFromSource(edgeSourceData)
             })
-        }).then(() => {
-            const sleep = new Promise((resolve) => setTimeout(resolve, 1))
-            sleep.then(()=>{
-                console.log("useInitializeEffect fitView")
-                fitView()
-            })
-        })
+        }).then(() => fitViewAfterPaint(fitView))
     }, [])
+}
+
+function fitViewAfterPaint(fitView: () => void) {
+    const sleep = new Promise((resolve) => setTimeout(resolve, 1))
+    sleep.then(() => {
+        console.log("useInitializeEffect fitView")
+        fitView()
+    })
 }

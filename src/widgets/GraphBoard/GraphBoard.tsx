@@ -1,7 +1,7 @@
 import * as React from 'react'
 import {useCallback, useContext, useRef, useState} from 'react'
 import '@xyflow/react/dist/style.css'
-import {Button, Divider, Flex, Space, Splitter, Switch} from 'antd'
+import {Button, Divider, Flex, Space, Splitter, Switch, Typography} from 'antd'
 import {ContextMenu} from '@/widgets/ContextMenu/ContextMenu.tsx'
 import "@/widgets/GraphBoard/graphBoard.css";
 import sort from '@/shared/assets/sort.svg'
@@ -240,6 +240,9 @@ export function GraphBoard() {
                             </div>
                             <div>{JSON.stringify(xfEdges)}</div>
                             <Divider style={{borderColor: 'green'}}/>
+                            <div style={{color: "white"}}>
+                                Total nodes {xfNodes.length}, edges {xfEdges.length}
+                            </div>
                             <Divider style={{borderColor: 'green'}}/>
                             <Divider style={{borderColor: 'green'}}/>
                             <button
