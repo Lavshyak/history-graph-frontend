@@ -125,9 +125,12 @@ export function GraphBoard() {
         },
     )
 
+    const reactFlowInstanceRef = useRef(reactFlowInstance)
+    reactFlowInstanceRef.current = reactFlowInstance
+    const fitView = () => reactFlowInstanceRef.current.fitView()
     useInitializeEffect(isInitialized, getAllQuery,
         recommendedNodePositionsOnAdd,
-        nodeDatasStateManager, edgeDatasStateManager)
+        nodeDatasStateManager, edgeDatasStateManager, fitView)
 
     devInvokeIfDevLoggingEnabled(()=> console.log('viewport:', viewport));
 
