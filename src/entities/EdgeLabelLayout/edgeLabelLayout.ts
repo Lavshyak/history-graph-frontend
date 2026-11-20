@@ -80,13 +80,19 @@ export function computeParallelEdgeDeltas(
 // Base spacing between parallel edges' curves. Intentionally independent of the
 // measured card size: otherwise the path string (and thus the card width) would
 // depend on the size again, closing the measurement feedback loop. Real card
-// separation is done by the collision resolution below.
+// separation is done by the collision resolution below, which uses the actual
+// measured card widths and therefore packs the cards as tightly as their content
+// allows.
+//
+// It is also intentionally independent of how many parallel edges there are:
+// computeParallelEdgeDeltas already encodes each edge's index within the group as
+// consecutive integers (…, -2, -1, 0, 1, 2, …), so a fixed multiplier keeps the
+// per-edge step constant. Scaling it by the group size (as it used to) made the
+// cards drift further and further apart the more parallel edges were added.
 const PARALLEL_EDGE_BASE_SPACING = 200
 
-export function computeDeltaMultiplier(parallelEdgeCount: number): number {
-	return (
-		PARALLEL_EDGE_BASE_SPACING * Math.max(1, Math.ceil(parallelEdgeCount / 2))
-	)
+export function computeDeltaMultiplier(): number {
+	return PARALLEL_EDGE_BASE_SPACING
 }
 
 function getLabelCenter(geometry: EdgeGeometry, extraOffset: number) {
@@ -247,7 +253,7 @@ export function computeEdgeLabelLayout(
 		const groupKey = getParallelEdgeGroupKey(edge.source, edge.target)
 		const groupEdgeIds = parallelGroups.get(groupKey)!
 		const pathDelta = computeParallelEdgeDeltas(groupEdgeIds).get(edge.id) ?? 0
-		const deltaMultiplier = computeDeltaMultiplier(groupEdgeIds.length)
+		const deltaMultiplier = computeDeltaMultiplier()
 		const size = labelSizes.get(edge.id) ?? DEFAULT_LABEL_SIZE
 		const { labelX, labelY } = getSpecialPath(
 			{ sourceX: sx, sourceY: sy, targetX: tx, targetY: ty },
