@@ -24,3 +24,17 @@
     opacity: 1;
     #box-shadow: 0 0 0 1px #d9d9d9;
 }
+
+/*
+  Панорамирование делает свой хук (useRafThrottledPan), а не встроенный пан
+  xyflow, поэтому класс `draggable` (и его курсор) xyflow не ставит. Класс
+  `dragging` приходит из стора: хук выставляет paneDragging, как это делал бы
+  сам xyflow.
+*/
+.react-flow__pane {
+    cursor: grab;
+}
+
+.react-flow__pane.dragging {
+    cursor: grabbing;
+}

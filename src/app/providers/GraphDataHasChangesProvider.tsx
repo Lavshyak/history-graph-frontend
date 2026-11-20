@@ -30,8 +30,6 @@ export function GraphDataHasChangesProvider({children}: { children: ReactNode })
         setHasChanges(true)
     })
 
-    console.log("GraphDataHasChangesProvider:hasChanges=" + hasChanges)
-
     return (<GraphDataHasChangesContext.Provider value={hasChanges}>
         {children}
     </GraphDataHasChangesContext.Provider>)

@@ -29,15 +29,21 @@ export async function prettifyGraph(
 			targets: [e.target],
 		})),
 	}
-	console.log('edges', edges)
 
 	const layout = await elk.layout(graph)
 
+	// Раньше позиция каждой ноды искалась через layout.children.find внутри
+	// map — это O(N²) на 1000 нод (граф «висел» несколько секунд).
+	const layoutNodesById = new Map<string, { x?: number; y?: number }>()
+	for (const layoutNode of layout.children ?? []) {
+		layoutNodesById.set(layoutNode.id, layoutNode)
+	}
+
 	return nodeIds.map((nodeId, index) => {
-		const layoutNode = layout.children?.find(c => c.id === nodeId)
+		const layoutNode = layoutNodesById.get(nodeId)
 		const position = {
 			x: layoutNode?.x ?? 0,
-			y: index * (nodeHeight + 50),
+			y: layoutNode?.y ?? index * (nodeHeight + 50),
 		}
 		return {
 			nodeId: nodeId,

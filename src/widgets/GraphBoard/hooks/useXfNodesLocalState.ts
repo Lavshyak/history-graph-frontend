@@ -4,57 +4,84 @@ import {useLocalState} from "@/shared/hooks/useLocalState.ts";
 import type {XfNode} from "@/shared/types/xyflow.ts";
 import type {NodeDataIdType} from "@/model/node/nodeData.ts";
 
-export function useXfNodesLocalState(recommendedNodePositionsOnAdd: Map<string, XYPosition>, nodeDatasStateManager: NodeDatasStateManager) {
-    return useLocalState<{
-        xfNodes: readonly Readonly<XfNode>[]
-        addXfNode(nodeId: NodeDataIdType): void
-        removeXfNode(nodeId: NodeDataIdType): void
-        applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]): void
-    }>((set, get) => ({
-        xfNodes: [],
-        addXfNode(nodeId: NodeDataIdType) {
-            let position = recommendedNodePositionsOnAdd.get(nodeId)
-            if (!position) {
-                console.log(98)
-                const nodeData = nodeDatasStateManager.allNodeDatasMap.get(nodeId)
-                console.log('nodeData ', nodeData)
-                if (nodeData) {
-                    if (nodeData.advisoryPosition) {
-                        position = {x: 0, y: 0}
-                        if (nodeData.advisoryPosition.x) {
-                            position.x = nodeData.advisoryPosition.x
-                        }
-                        if (nodeData.advisoryPosition.y) {
-                            position.y = nodeData.advisoryPosition.y
-                        }
-                    }
-                }
-            }
-            if (!position) {
-                console.log(114)
-                position = {x: 0, y: 0}
-            }
+type XfNodesLocalState = {
+    xfNodes: readonly Readonly<XfNode>[]
+    addXfNode(nodeId: NodeDataIdType): void
+    removeXfNode(nodeId: NodeDataIdType): void
+    applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]): void
+}
 
-            console.log('position ', position)
+export function useXfNodesLocalState(recommendedNodePositionsOnAdd: Map<string, XYPosition>, nodeDatasStateManager: NodeDatasStateManager) {
+    return useLocalState<XfNodesLocalState>((set, get) => {
+        function resolveNodePosition(nodeId: NodeDataIdType): XYPosition {
+            const recommendedPosition = recommendedNodePositionsOnAdd.get(nodeId)
+            if (recommendedPosition) return recommendedPosition
+
+            const advisoryPosition = nodeDatasStateManager.allNodeDatasMap.get(nodeId)?.advisoryPosition
+            if (!advisoryPosition) return {x: 0, y: 0}
+
+            return {
+                x: advisoryPosition.x ?? 0,
+                y: advisoryPosition.y ?? 0,
+            }
+        }
+
+        function createXfNode(nodeId: NodeDataIdType): XfNode {
+            return {
+                id: nodeId,
+                data: {},
+                position: resolveNodePosition(nodeId),
+                type: 'EventNode',
+            }
+        }
+
+        // Ноды обычно приходят пачкой (инициализация графа, dev-генератор).
+        // Копим id и применяем всё одним set в микротаске, иначе каждая нода
+        // даёт отдельный ре-рендер доски и O(N) копию массива — суммарно O(N²)
+        // и несколько замороженных секунд на большом графе.
+        let pendingNodeIds: NodeDataIdType[] = []
+        let flushScheduled = false
+
+        function flushPendingNodes() {
+            flushScheduled = false
+            if (pendingNodeIds.length === 0) return
+
+            const nodeIds = pendingNodeIds
+            pendingNodeIds = []
 
             set(state => ({
                 xfNodes: [
                     ...state.xfNodes,
-                    {id: nodeId, data: {}, position: position, type: 'EventNode'},
+                    ...nodeIds.map(createXfNode),
                 ],
             }))
-        },
-        removeXfNode(nodeId: NodeDataIdType) {
-            set(state => ({
-                xfNodes: state.xfNodes.filter(x => x.id !== nodeId),
-            }))
-        },
-        applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) {
-            const currentNodes = get().xfNodes
-            const newNodes = applyNodeChanges(nodeChanges, currentNodes as XfNode[])
-            set({
-                xfNodes: newNodes,
-            })
-        },
-    }))
+        }
+
+        function scheduleFlush() {
+            if (flushScheduled) return
+            flushScheduled = true
+            queueMicrotask(flushPendingNodes)
+        }
+
+        return {
+            xfNodes: [],
+            addXfNode(nodeId: NodeDataIdType) {
+                pendingNodeIds.push(nodeId)
+                scheduleFlush()
+            },
+            removeXfNode(nodeId: NodeDataIdType) {
+                pendingNodeIds = pendingNodeIds.filter(pendingNodeId => pendingNodeId !== nodeId)
+                set(state => ({
+                    xfNodes: state.xfNodes.filter(x => x.id !== nodeId),
+                }))
+            },
+            applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) {
+                const currentNodes = get().xfNodes
+                const newNodes = applyNodeChanges(nodeChanges, currentNodes as XfNode[])
+                set({
+                    xfNodes: newNodes,
+                })
+            },
+        }
+    })
 }

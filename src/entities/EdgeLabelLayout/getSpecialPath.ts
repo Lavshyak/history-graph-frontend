@@ -5,14 +5,6 @@ export type GetSpecialPathParams = {
     targetY: number;
 };
 
-// Coordinates are padded to a fixed width so that, rendered in a monospace font,
-// the path string always occupies exactly the same width regardless of the actual
-// values. This keeps the card's automatic width independent of the card's own
-// position (which depends on `extraOffset`) — otherwise the width would feed back
-// into the layout and the card would jitter forever.
-const COORD_FIELD_WIDTH = 9;
-const formatCoord = (value: number) => value.toFixed(1).padStart(COORD_FIELD_WIDTH, " ");
-
 /**
  *
  * @param sourceX
@@ -75,7 +67,6 @@ export const getSpecialPath = (
 
     return {
         path: `M ${sourceX} ${sourceY} Q ${centerX} ${centerY} ${targetX} ${targetY}`,
-        pathDisplay: `M ${formatCoord(sourceX)} ${formatCoord(sourceY)} Q ${formatCoord(centerX)} ${formatCoord(centerY)} ${formatCoord(targetX)} ${formatCoord(targetY)}`,
         labelX,
         labelY,
     };

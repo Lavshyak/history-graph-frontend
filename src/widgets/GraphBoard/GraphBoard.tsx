@@ -15,7 +15,6 @@ import {
     MarkerType,
     ReactFlow,
     useReactFlow,
-    type Viewport,
     type XYPosition,
 } from '@xyflow/react'
 
@@ -40,10 +39,10 @@ import { useXfNodesLocalState } from '@/widgets/GraphBoard/hooks/useXfNodesLocal
 import { useXfEdgesLocalState } from '@/widgets/GraphBoard/hooks/useXfEdgesLocalState.ts'
 import { useOnNodeContextMenuCallback } from '@/widgets/GraphBoard/hooks/useOnNodeContextMenuCallback.ts'
 import { useOnNodesChangeRaf } from '@/widgets/GraphBoard/hooks/useOnNodesChangeRaf.ts'
+import { useRafThrottledPan } from '@/widgets/GraphBoard/hooks/useRafThrottledPan.ts'
 import { useInitializeEffect } from '@/widgets/GraphBoard/hooks/useInitializeEffect.ts'
 import useRenderCountLogging from '@/shared/dev/useRenderCountLogging.ts'
 import RenderCountView from '@/shared/dev/RenderCountView.tsx'
-import devInvokeIfDevLoggingEnabled from '@/shared/dev/devInvokeIfDevLoggingEnabled.ts'
 
 const connectionLineStyle = {
     stroke: '#b1b1b7',
@@ -101,12 +100,15 @@ export function GraphBoard() {
     const onNodesChangeRaf = useOnNodesChangeRaf(applyXfNodeChanges)
 
     const reactFlowInstance = useReactFlow()
-    const [viewport, setViewport] = useState<Viewport>({x: 0, y: 0, zoom: 1})
     const reactFlowComponentRef = useRef<HTMLDivElement>(null)
     const [menu, setMenu] = useState<ContextMenuParams | null>(null)
     const onNodeContextMenu = useOnNodeContextMenuCallback(
-        reactFlowComponentRef, reactFlowInstance,
-        viewport, setMenu)
+        reactFlowComponentRef, reactFlowInstance, setMenu)
+
+    // Свой пан вместо встроенного (panOnDrag={false}): xyflow обновляет стор на
+    // каждое событие мыши, что на тысячах связей вешает главный поток на
+    // быстром движении. Здесь вьюпорт применяется раз в кадр.
+    useRafThrottledPan(reactFlowComponentRef)
 
     // Close the context menu if it's open whenever the window is clicked.
     const onPaneClick = useCallback(() => setMenu(null), [setMenu])
@@ -125,6 +127,13 @@ export function GraphBoard() {
         },
     )
 
+    useEventHandling(
+        edgeDatasStateManager.edgesStateEvents.edgeRemovedEvent,
+        ({edgeDataId}) => {
+            removeXfEdge(edgeDataId)
+        },
+    )
+
     const reactFlowInstanceRef = useRef(reactFlowInstance)
     reactFlowInstanceRef.current = reactFlowInstance
     const fitView = () => reactFlowInstanceRef.current.fitView()
@@ -132,7 +141,19 @@ export function GraphBoard() {
         recommendedNodePositionsOnAdd,
         nodeDatasStateManager, edgeDatasStateManager, fitView)
 
-    devInvokeIfDevLoggingEnabled(()=> console.log('viewport:', viewport));
+    const onConnectEnd = useCallback((
+        event: MouseEvent | TouchEvent,
+        connectionState: FinalConnectionState,
+    ) => {
+        if (connectionState.fromNode && connectionState.toNode) {
+            edgeDatasStateManager.addEdgeFromCreated({
+                id: crypto.randomUUID(),
+                label: 'not defined',
+                fromId: connectionState.fromNode.id,
+                toId: connectionState.toNode.id,
+            })
+        }
+    }, [edgeDatasStateManager])
 
     return (
         <Splitter className="all-view-splitter" style={{boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'}}>
@@ -151,8 +172,6 @@ export function GraphBoard() {
                                         <EdgeLabelLayoutProvider>
                                             <ReactFlow
                                                 ref={reactFlowComponentRef}
-                                                viewport={viewport}
-                                                onViewportChange={v => setViewport(v)}
                                                 nodes={xfNodes as XfNode[]}
                                                 edges={xfEdges as XfEdge[]}
                                                 onNodesChange={onNodesChangeRaf}
@@ -167,26 +186,12 @@ export function GraphBoard() {
                                                 connectionLineStyle={connectionLineStyle}
                                                 onPaneContextMenu={onNodeContextMenu}
                                                 onPaneClick={onPaneClick}
-                                                onConnectEnd={(
-                                                    event: MouseEvent | TouchEvent,
-                                                    connectionState: FinalConnectionState,
-                                                ) => {
-                                                    console.log('connectionState', connectionState)
-                                                    if (connectionState.fromNode && connectionState.toNode) {
-                                                        /*queueMicrotask(()=> {*/
-                                                        edgeDatasStateManager.addEdgeFromCreated({
-                                                            id: crypto.randomUUID(),
-                                                            label: 'not defined',
-                                                            fromId: connectionState.fromNode.id,
-                                                            toId: connectionState.toNode.id,
-                                                        })
-                                                        /*});*/
-                                                    }
-                                                }}
+                                                // Панорамируем сами, по кадрам (useRafThrottledPan).
+                                                panOnDrag={false}
+                                                onConnectEnd={onConnectEnd}
                                                 connectOnClick={false}
                                             >
                                                 <RenderCountView/>
-                                                {JSON.stringify(viewport)}
                                                 <Controls showInteractive={true}>
                                                     <ControlButton
                                                         title='Sort'
@@ -238,7 +243,6 @@ export function GraphBoard() {
                                     </Button>
                                 </Space>
                             </div>
-                            <div>{JSON.stringify(xfEdges)}</div>
                             <Divider style={{borderColor: 'green'}}/>
                             <div style={{color: "white"}}>
                                 Total nodes {xfNodes.length}, edges {xfEdges.length}

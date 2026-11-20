@@ -2,7 +2,6 @@ import type { InternalNode } from '@xyflow/react'
 import { getEdgeParams } from '@/entities/FloatingEdge/getEdgeParams.ts'
 import { getSpecialPath } from '@/entities/EdgeLabelLayout/getSpecialPath.ts'
 import type { XfEdge } from '@/shared/types/xyflow.ts'
-import devGetOrSetObjectId from "@/shared/dev/objectId.ts";
 
 // Fallback card size, used only until the real card has been measured for the
 // first time. The real size is adaptive and measured from the rendered card
@@ -54,14 +53,19 @@ type LabelBox = {
 	bottom: number
 }
 
+function compareIds(a: string, b: string): number {
+	// Быстрее, чем localeCompare, и для id (числа/hex/ascii) даёт тот же порядок.
+	return a < b ? -1 : a > b ? 1 : 0
+}
+
 function getParallelEdgeGroupKey(source: string, target: string): string {
-	return [source, target].sort((a, b) => a.localeCompare(b)).join('::')
+	return source < target ? `${source}::${target}` : `${target}::${source}`
 }
 
 export function computeParallelEdgeDeltas(
 	edgeIds: readonly string[],
 ): Map<string, number> {
-	const sorted = [...edgeIds].sort((a, b) => a.localeCompare(b))
+	const sorted = [...edgeIds].sort(compareIds)
 	const middleIdx = Math.floor(sorted.length / 2)
 	const deltas = new Map<string, number>()
 
@@ -93,6 +97,35 @@ const PARALLEL_EDGE_BASE_SPACING = 200
 
 export function computeDeltaMultiplier(): number {
 	return PARALLEL_EDGE_BASE_SPACING
+}
+
+// Раньше delta каждой связи считалась внутри цикла по связям, то есть для
+// каждой связи заново сортировалась вся группа параллельных связей. На графе
+// с сотнями параллельных рёбер это давало O(E^2 log E) на каждый кадр драга.
+// Теперь группы считаются один раз на изменение набора связей.
+export function computeParallelEdgeDeltasByEdgeId(
+	edges: readonly XfEdge[],
+): Map<string, number> {
+	const parallelGroups = new Map<string, string[]>()
+
+	for (const edge of edges) {
+		const key = getParallelEdgeGroupKey(edge.source, edge.target)
+		const group = parallelGroups.get(key)
+		if (group) {
+			group.push(edge.id)
+		} else {
+			parallelGroups.set(key, [edge.id])
+		}
+	}
+
+	const deltas = new Map<string, number>()
+	for (const groupEdgeIds of parallelGroups.values()) {
+		for (const [edgeId, delta] of computeParallelEdgeDeltas(groupEdgeIds)) {
+			deltas.set(edgeId, delta)
+		}
+	}
+
+	return deltas
 }
 
 function getLabelCenter(geometry: EdgeGeometry, extraOffset: number) {
@@ -156,6 +189,64 @@ function boxesOverlapAny(box: LabelBox, others: readonly LabelBox[]): boolean {
 	return false
 }
 
+// Пространственный индекс по ячейкам. Проверка пересечения карточки с уже
+// размещёнными смотрит только в ячейки, которые накрывает сама карточка, а не
+// во все карточки подряд. Без индекса поиск свободного места был
+// O(кол-во уже размещённых) на каждый шаг поиска, и на графах с сотнями
+// связей между одной парой нод это съедало кадры.
+const SPATIAL_CELL_SIZE = 256
+
+function cellIndex(value: number): number {
+	return Math.floor(value / SPATIAL_CELL_SIZE)
+}
+
+function cellKey(cellX: number, cellY: number): string {
+	return `${cellX}:${cellY}`
+}
+
+class BoxIndex {
+	private readonly cells = new Map<string, LabelBox[]>()
+
+	add(box: LabelBox): void {
+		const fromCellX = cellIndex(box.left)
+		const toCellX = cellIndex(box.right)
+		const fromCellY = cellIndex(box.top)
+		const toCellY = cellIndex(box.bottom)
+
+		for (let cellY = fromCellY; cellY <= toCellY; cellY++) {
+			for (let cellX = fromCellX; cellX <= toCellX; cellX++) {
+				const key = cellKey(cellX, cellY)
+				const boxes = this.cells.get(key)
+				if (boxes) {
+					boxes.push(box)
+				} else {
+					this.cells.set(key, [box])
+				}
+			}
+		}
+	}
+
+	overlapsAny(box: LabelBox): boolean {
+		const fromCellX = cellIndex(box.left)
+		const toCellX = cellIndex(box.right)
+		const fromCellY = cellIndex(box.top)
+		const toCellY = cellIndex(box.bottom)
+
+		for (let cellY = fromCellY; cellY <= toCellY; cellY++) {
+			for (let cellX = fromCellX; cellX <= toCellX; cellX++) {
+				const boxes = this.cells.get(cellKey(cellX, cellY))
+				if (!boxes) {
+					continue
+				}
+				if (boxesOverlapAny(box, boxes)) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
 // Deterministic greedy placement.
 //
 // Cards are placed one by one. Each card first tries its natural position
@@ -166,8 +257,8 @@ function boxesOverlapAny(box: LabelBox, others: readonly LabelBox[]): boolean {
 // stable.
 function findFreeOffset(
 	geometry: EdgeGeometry,
-	nodeBoxes: readonly LabelBox[],
-	placedBoxes: readonly LabelBox[],
+	nodeBoxIndex: BoxIndex,
+	placedBoxIndex: BoxIndex,
 ): number {
 	const step = COLLISION_STEP
 	const maxSteps = 200
@@ -186,8 +277,8 @@ function findFreeOffset(
 		for (const offset of candidates) {
 			const box = getLabelBox(geometry, offset)
 			if (
-				!boxesOverlapAny(box, nodeBoxes) &&
-				!boxesOverlapAny(box, placedBoxes)
+				!nodeBoxIndex.overlapsAny(box) &&
+				!placedBoxIndex.overlapsAny(box)
 			) {
 				return offset
 			}
@@ -204,16 +295,21 @@ function resolveCollisions(
 ): Map<string, number> {
 	// Sort for determinism: the same graph always produces the same layout.
 	const ordered = [...geometries].sort((a, b) =>
-		a.edgeId.localeCompare(b.edgeId),
+		compareIds(a.edgeId, b.edgeId),
 	)
 
+	const nodeBoxIndex = new BoxIndex()
+	for (const nodeBox of nodeBoxes) {
+		nodeBoxIndex.add(nodeBox)
+	}
+
+	const placedBoxIndex = new BoxIndex()
 	const offsets = new Map<string, number>()
-	const placedBoxes: LabelBox[] = []
 
 	for (const geometry of ordered) {
-		const offset = findFreeOffset(geometry, nodeBoxes, placedBoxes)
+		const offset = findFreeOffset(geometry, nodeBoxIndex, placedBoxIndex)
 		offsets.set(geometry.edgeId, offset)
-		placedBoxes.push(getLabelBox(geometry, offset))
+		placedBoxIndex.add(getLabelBox(geometry, offset))
 	}
 
 	return offsets
@@ -223,19 +319,8 @@ export function computeEdgeLabelLayout(
 	edges: readonly XfEdge[],
 	nodeLookup: Map<string, InternalNode>,
 	labelSizes: ReadonlyMap<string, LabelSize> = new Map(),
+	parallelEdgeDeltas: ReadonlyMap<string, number> = computeParallelEdgeDeltasByEdgeId(edges),
 ): Map<string, EdgeLabelLayoutEntry> {
-	const parallelGroups = new Map<string, string[]>()
-
-	for (const edge of edges) {
-		const key = getParallelEdgeGroupKey(edge.source, edge.target)
-		const group = parallelGroups.get(key)
-		if (group) {
-			group.push(edge.id)
-		} else {
-			parallelGroups.set(key, [edge.id])
-		}
-	}
-
 	const geometries: EdgeGeometry[] = []
 
 	for (const edge of edges) {
@@ -246,13 +331,11 @@ export function computeEdgeLabelLayout(
 		}
 
 		const sortedNodes = [sourceNode, targetNode].sort((a, b) =>
-			a.id.localeCompare(b.id),
+			compareIds(a.id, b.id),
 		)
 		const { sx, sy, tx, ty } = getEdgeParams(sortedNodes[0], sortedNodes[1])
 
-		const groupKey = getParallelEdgeGroupKey(edge.source, edge.target)
-		const groupEdgeIds = parallelGroups.get(groupKey)!
-		const pathDelta = computeParallelEdgeDeltas(groupEdgeIds).get(edge.id) ?? 0
+		const pathDelta = parallelEdgeDeltas.get(edge.id) ?? 0
 		const deltaMultiplier = computeDeltaMultiplier()
 		const size = labelSizes.get(edge.id) ?? DEFAULT_LABEL_SIZE
 		const { labelX, labelY } = getSpecialPath(
@@ -288,8 +371,6 @@ export function computeEdgeLabelLayout(
 			deltaMultiplier: geometry.deltaMultiplier,
 		})
 	}
-
-	devGetOrSetObjectId(layout)
 
 	return layout
 }
