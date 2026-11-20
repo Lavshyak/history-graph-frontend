@@ -6,6 +6,11 @@ import { useToggleStore } from '@/shared/UiStore/useToggleStore.ts'
 import sort from '@/shared/assets/sort.svg'
 import '@/widgets/SortAndSearchPanel/style.css'
 
+// Сколько результатов рисуем в панели. Каждый результат — отдельный antd
+// Collapse; на графе в 1000 нод открытие панели строило 1000 компонентов и
+// перерисовывало их на каждый символ в поиске.
+const SEARCH_RESULT_LIMIT = 200
+
 export default function SortAndSearchPanel() {
 	const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 
@@ -134,7 +139,7 @@ export default function SortAndSearchPanel() {
 						width: '85%',
 					}}
 				>
-					{data.map(el => (
+					{data.slice(0, SEARCH_RESULT_LIMIT).map(el => (
 						<Collapse
 							style={{ marginBottom: '1rem' }}
 							key={el.id}
@@ -158,6 +163,11 @@ export default function SortAndSearchPanel() {
 							]}
 						/>
 					))}
+					{data.length > SEARCH_RESULT_LIMIT && (
+						<li style={{ color: '#797979', padding: '0.5rem 0', listStyle: 'none' }}>
+							показано {SEARCH_RESULT_LIMIT} из {data.length} — уточните запрос
+						</li>
+					)}
 				</ul>
 			</div>
 		</div>

@@ -1,5 +1,15 @@
-import ElkConstructor from 'elkjs'
+import {layoutWithElk} from '@/model/graph/elkLayout.ts'
 
+// Отступ между нодами в «быстрой» раскладке.
+const GRID_GAP = 50
+
+/**
+ * Раскладка графа для первичной расстановки нод.
+ *
+ * Если связей нет, elk не нужен вообще: на 1000 нодах он считал ~2.3 с, хотя
+ * любая расстановка без связей произвольна. Кладём в сетку — мгновенно.
+ * Во всех остальных случаях считаем elk (в воркере, см. elkLayout.ts).
+ */
 export async function prettifyGraph(
 	nodeIds: string[],
 	edges: {
@@ -10,7 +20,16 @@ export async function prettifyGraph(
 	nodeWidth: number = 250,
 	nodeHeight: number = 600,
 ) {
-	const elk = new ElkConstructor()
+	if (edges.length === 0) {
+		const columns = Math.max(1, Math.ceil(Math.sqrt(nodeIds.length)))
+		return nodeIds.map((nodeId, index) => ({
+			nodeId,
+			position: {
+				x: (index % columns) * (nodeWidth + GRID_GAP),
+				y: Math.floor(index / columns) * (nodeHeight + GRID_GAP),
+			},
+		}))
+	}
 
 	const graph = {
 		id: 'root',
@@ -30,7 +49,7 @@ export async function prettifyGraph(
 		})),
 	}
 
-	const layout = await elk.layout(graph)
+	const layout = await layoutWithElk(graph)
 
 	// Раньше позиция каждой ноды искалась через layout.children.find внутри
 	// map — это O(N²) на 1000 нод (граф «висел» несколько секунд).

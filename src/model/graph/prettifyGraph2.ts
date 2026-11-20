@@ -1,5 +1,5 @@
 import {type XYPosition} from "@xyflow/react";
-import ElkConstructor from "elkjs";
+import {layoutWithElk} from "@/model/graph/elkLayout.ts";
 
 // ai slop
 export default async function prettifyGraph2<TNode, TEdge>(
@@ -14,8 +14,6 @@ export default async function prettifyGraph2<TNode, TEdge>(
     nodeWidth: number = 240,
     nodeHeight: number = 100
 ) {
-    const elk = new ElkConstructor();
-
     const graph = {
         id: "root",
         layoutOptions: {
@@ -33,10 +31,13 @@ export default async function prettifyGraph2<TNode, TEdge>(
         })),
     };
 
-    const layout = await elk.layout(graph);
+    const layout = await layoutWithElk(graph)
+
+    // Раньше позиция искалась через layout.children.find внутри forEach — O(N²).
+    const layoutNodesById = new Map((layout.children ?? []).map(c => [c.id, c]))
 
     nodes.forEach(n => {
-        const layoutNode = layout.children?.find((c) => c.id === n.id);
+        const layoutNode = layoutNodesById.get(n.id);
         n.position = {
             x: layoutNode?.x ?? 0,
             y: layoutNode?.y ?? 0,

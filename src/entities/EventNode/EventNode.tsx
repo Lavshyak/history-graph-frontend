@@ -1,6 +1,6 @@
-import { Handle, type NodeProps, Position, useConnection } from '@xyflow/react'
+import { Handle, type NodeProps, Position, useStore } from '@xyflow/react'
 import { Button, Collapse, Flex } from 'antd'
-import { type CSSProperties, useContext, useMemo, useState } from 'react'
+import { type CSSProperties, memo, useContext, useMemo, useState } from 'react'
 
 import type { XfNode } from '@/shared/types/xyflow.ts'
 import { NodeDatasStateManagerContext } from '@/model/graph/nodeDatasStateManagerContext.ts'
@@ -44,7 +44,12 @@ const styleEditableFieldInNode: CSSProperties = {
 	fontFamily: 'system-ui, Avenir, Helvetica, Arial, sans-serif',
 }
 
-export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
+// memo: после измерения нод xyflow перерисовывает все NodeWrapper'ы, а внутри
+// у нас тяжёлый antd Collapse. На графе в 1000 нод эта волна ре-рендеров давала
+// ~секунду блокировки сразу после монтирования.
+export const EventNode = memo(EventNode1)
+
+function EventNode1({ id: thisNodeId }: NodeProps<XfNode>) {
 	const nodeDatasStateContext = useContext(NodeDatasStateManagerContext)
 	const initialData = useMemo(
 		() => nodeDatasStateContext.allNodeDatasMap.get(thisNodeId),
@@ -54,10 +59,20 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 	const [data, setData] = useState(initialData)
 	const [isEdit, setIsEdit] = useState<boolean>(false)
 
-	const connection = useConnection()
+	// Подписка только на то, что реально нужно узлу. useConnection() подписан на
+	// весь объект соединения, который меняется на каждый mousemove при
+	// протягивании связи — и тогда перерисовывались бы ВСЕ ноды графа.
+	// Одна подписка вместо двух: возвращаем либо null (соединения нет), либо id
+	// ноды-источника. На графе в 1000 нод это вдвое меньше уведомлений на кадр.
+	const connectionFromNodeId = useStore(state =>
+		state.connection.inProgress
+			? state.connection.fromNode?.id ?? ''
+			: null,
+	)
+	const isConnectionInProgress = connectionFromNodeId !== null
 
 	const isTarget =
-		connection.inProgress && connection.fromNode.id !== thisNodeId
+		isConnectionInProgress && connectionFromNodeId !== thisNodeId
 
 	const isEditable = useContext(EditableContext)
 
@@ -96,7 +111,7 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 	return (
 		<div>
 			{/* We want to disable the target handle, if the connection was started from this node */}
-			{(!connection.inProgress || isTarget) && (
+			{(!isConnectionInProgress || isTarget) && (
 				<Handle
 					style={targetHandleStyle}
 					position={Position.Left}
@@ -278,7 +293,7 @@ export function EventNode({ id: thisNodeId }: NodeProps<XfNode>) {
 						>
 							{/* If handles are conditionally rendered and not present initially, you need to update the node internals https://reactflow.dev/docs/api/hooks/use-update-node-internals/ */}
 							{/* In this case we don't need to use useUpdateNodeInternals, since !isConnecting is true at the beginning and all handles are rendered initially. */}
-							{!connection.inProgress && (
+							{!isConnectionInProgress && (
 								<Handle
 									style={sourceHandleStyle}
 									position={Position.Top}
