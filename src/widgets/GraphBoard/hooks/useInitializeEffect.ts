@@ -20,10 +20,10 @@ import type {
 // Параметры dev графа: (source ноды, created ноды, source связи, created связи, seed).
 // Крути эти числа, когда хочется поиграться на графе побольше трёх нод.
 export const devGraphGeneratorParams: DevGraphGeneratorParams = {
-    sourceNodesCount: 0,
-    createdNodesCount: 2,
-    sourceEdgesCount: 0,
-    createdEdgesCount: 1000,
+    sourceNodesCount: 50,
+    createdNodesCount: 50,
+    sourceEdgesCount: 40,
+    createdEdgesCount: 40,
     randomSeed: 12345,
 }
 
