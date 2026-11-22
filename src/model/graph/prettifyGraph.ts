@@ -1,4 +1,4 @@
-import {layoutWithElk} from '@/model/graph/elkLayout.ts'
+import { layoutWithElk } from '@/model/graph/elkLayout.ts'
 
 // Отступ между нодами в «быстрой» раскладке.
 const GRID_GAP = 50
@@ -17,11 +17,14 @@ export async function prettifyGraph(
 		source: string
 		target: string
 	}[],
+	isSortGraph: boolean = false,
 	nodeWidth: number = 250,
 	nodeHeight: number = 600,
 ) {
 	if (edges.length === 0) {
-		const columns = Math.max(1, Math.ceil(Math.sqrt(nodeIds.length)))
+		const columns = isSortGraph
+			? 1
+			: Math.max(1, Math.ceil(Math.sqrt(nodeIds.length)))
 		return nodeIds.map((nodeId, index) => ({
 			nodeId,
 			position: {
@@ -35,7 +38,7 @@ export async function prettifyGraph(
 		id: 'root',
 		layoutOptions: {
 			'elk.algorithm': 'layered', // можно заменить на "force" или "stress"
-			'elk.direction': 'DOWN',
+			'elk.direction': isSortGraph ? 'DOWN' : 'RIGHT',
 		},
 		children: nodeIds.map(nodeId => ({
 			id: nodeId,
@@ -58,11 +61,11 @@ export async function prettifyGraph(
 		layoutNodesById.set(layoutNode.id, layoutNode)
 	}
 
-	return nodeIds.map((nodeId, index) => {
+	return nodeIds.map(nodeId => {
 		const layoutNode = layoutNodesById.get(nodeId)
 		const position = {
 			x: layoutNode?.x ?? 0,
-			y: layoutNode?.y ?? index * (nodeHeight + 50),
+			y: layoutNode?.y ?? 0,
 		}
 		return {
 			nodeId: nodeId,
