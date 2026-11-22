@@ -9,6 +9,7 @@ type XfNodesLocalState = {
     addXfNode(nodeId: NodeDataIdType): void
     removeXfNode(nodeId: NodeDataIdType): void
     applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]): void
+    setXfNodePositions(positions: ReadonlyMap<string, XYPosition>): void
 }
 
 export function useXfNodesLocalState(recommendedNodePositionsOnAdd: Map<string, XYPosition>, nodeDatasStateManager: NodeDatasStateManager) {
@@ -81,6 +82,14 @@ export function useXfNodesLocalState(recommendedNodePositionsOnAdd: Map<string, 
                 set({
                     xfNodes: newNodes,
                 })
+            },
+            setXfNodePositions(positions: ReadonlyMap<string, XYPosition>) {
+                set(state => ({
+                    xfNodes: state.xfNodes.map(node => {
+                        const position = positions.get(node.id)
+                        return position ? { ...node, position } : node
+                    }),
+                }))
             },
         }
     })
