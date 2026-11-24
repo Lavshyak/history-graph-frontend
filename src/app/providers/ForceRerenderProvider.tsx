@@ -4,7 +4,7 @@ import {ForceRerenderContext, type ForceRerenderContextType} from "@/model/graph
 import useDevRenderCountLogging from "@/shared/dev/useRenderCountLogging.ts";
 
 export function ForceRerenderProvider({children}: { children: ReactNode }) {
-    useDevRenderCountLogging("ForceRerenderProvider")
+    useDevRenderCountLogging("ForceRerenderProvider", true)
     const value = useLocalState<ForceRerenderContextType>((setState, getState, store) => ({
         forcedRerenderValue: 0,
         forceRerender: () => {

@@ -25,9 +25,6 @@ export const GraphChangesSummary = memo(GraphChangesSummary1)
 export default GraphChangesSummary
 
 export function GraphChangesSummary1() {
-    const rendersCount = useRef(0);
-    rendersCount.current += 1
-
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
     const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
 
@@ -142,7 +139,6 @@ export function GraphChangesSummary1() {
     }
 
     return <div style={{color: 'white'}}>
-        renders count: {rendersCount.current}
         <br/>
         <Card title="Nodes">
             <Card title="Created">

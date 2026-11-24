@@ -1,4 +1,4 @@
-import {applyNodeChanges, type NodeChange, type XYPosition} from "@xyflow/react";
+import {type NodeChange, type NodeChangeset, type XYPosition} from "@xyflow/react";
 import type {NodeDatasStateManager} from "@/model/node/createNodeDatasStateManager.ts";
 import {useLocalState} from "@/shared/hooks/useLocalState.ts";
 import type {XfNode} from "@/shared/types/xyflow.ts";
@@ -8,7 +8,7 @@ type XfNodesLocalState = {
     xfNodes: readonly Readonly<XfNode>[]
     addXfNode(nodeId: NodeDataIdType): void
     removeXfNode(nodeId: NodeDataIdType): void
-    applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]): void
+    applyXfNodeChanges(nodeChanges: NodeChangeset<XfNode>): void
     setXfNodePositions(positions: ReadonlyMap<string, XYPosition>): void
 }
 
@@ -76,9 +76,9 @@ export function useXfNodesLocalState(recommendedNodePositionsOnAdd: Map<string, 
                     xfNodes: state.xfNodes.filter(x => x.id !== nodeId),
                 }))
             },
-            applyXfNodeChanges(nodeChanges: NodeChange<XfNode>[]) {
+            applyXfNodeChanges(nodeChanges: NodeChangeset<XfNode>) {
                 const currentNodes = get().xfNodes
-                const newNodes = applyNodeChanges(nodeChanges, currentNodes as XfNode[])
+                const newNodes = nodeChanges.applyTo(currentNodes as XfNode[])
                 set({
                     xfNodes: newNodes,
                 })

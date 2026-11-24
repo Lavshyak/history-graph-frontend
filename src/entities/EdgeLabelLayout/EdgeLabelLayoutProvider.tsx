@@ -1,4 +1,4 @@
-import { useStore, useStoreApi } from '@xyflow/react'
+import {useInternalNode, useNodesStore} from '@xyflow/react'
 import {
 	type ReactNode,
 	useCallback,
@@ -17,30 +17,23 @@ import {
 } from '@/entities/EdgeLabelLayout/edgeLabelLayout.ts'
 import {
 	EdgeLabelLayoutContext,
-	EdgeLabelLayoutVersionContext,
 	EdgeLabelReportSizeContext,
-	edgeLabelViewportMoving,
 } from '@/entities/EdgeLabelLayout/contexts.ts'
 import {
 	EdgeLayoutGetterByIdContext,
 	type EdgeLayoutGetterByIdContextType
 } from "@/entities/EdgeLabelLayout/edgeLayoutGetterByIdContext.ts";
 import type {EdgeLabelLayoutEntry} from "@/entities/EdgeLabelLayout/edgeLabelLayout.ts";
+import {now} from "lodash";
+import {XfEdgesContext} from "@/widgets/GraphBoard/GraphBoard.tsx";
 
 type EdgeLabelLayoutProviderProps = {
 	children: ReactNode
 }
 
-// Два размера считаются одинаковыми, если отличаются меньше чем на 2px:
+// Два размера считаются одинаковыми, если отличаются меньше чем на 4px:
 // иначе карточка и раскладка бесконечно подталкивают друг друга.
-const SIZE_JITTER_EPSILON = 2
-
-// Через сколько после последнего сдвига вьюпорта считать раскладку. Пока
-// вьюпорт едет (панорамирование/зум), в поле видимости попадают новые карточки,
-// приходят их размеры — и раскладка на сотни связей пересчитывалась бы каждый
-// кадр. Она нужна только для разрешения коллизий, поэтому считаем её один раз,
-// когда движение затихло.
-const VIEWPORT_SETTLE_DELAY_MS = 120
+const SIZE_JITTER_EPSILON = 4
 
 function isSameSize(a: LabelSize, b: LabelSize): boolean {
 	return (
@@ -52,17 +45,18 @@ function isSameSize(a: LabelSize, b: LabelSize): boolean {
 export function EdgeLabelLayoutProvider({
 	children,
 }: EdgeLabelLayoutProviderProps) {
+	return children;
 	// xyflow'воский стейт
-	const edges = useStore(state => state.edges as XfEdge[])
+	const xfEdges = useContext(XfEdgesContext)
 	// nodeLookup получает новую identity на каждое изменение ноды (включая
 	// перетаскивание), этого достаточно для пересчёта раскладки. Раньше здесь
 	// ещё строилась строка-подпись по всем нодам на любое изменение стора.
-	const nodeLookup = useStore(state => state.nodeLookup)
+	const nodeLookup = useNodesStore(state => state.nodeLookup)
 	// Пока нода тащится, раскладка не нужна: карточки и так едут за нодами
 	// (путь каждой связи считается от их текущих позиций), а разрешение
 	// коллизий меняется незаметно. Пересчитываем только когда перетаскивание
 	// закончилось — иначе раскладка на сотни связей считалась каждый кадр.
-	const isNodeDragging = useStore(state =>
+	const isNodeDragging = useNodesStore(state =>
 		state.nodes.some(node => node.dragging === true),
 	)
 	const [layoutVersion, setLayoutVersion] = useState(0)
@@ -77,58 +71,8 @@ export function EdgeLabelLayoutProvider({
 		wasDraggingRef.current = isNodeDragging
 	}, [isNodeDragging])
 
-	// Движение вьюпорта (панорамирование/зум) отслеживаем подпиской на стор
-	// xyflow, а не через useStore: так провайдер не перерисовывается каждый кадр
-	// панорамирования.
-	const xyflowStore = useStoreApi()
-	const isViewportMovingRef = useRef(false)
-	const [viewportSettleVersion, setViewportSettleVersion] = useState(0)
-
-	useEffect(() => {
-		let settleFrameRef: number | null = null
-		let lastTransformChangeTime = 0
-
-		const checkViewportSettled = () => {
-			if (
-				performance.now() - lastTransformChangeTime <
-				VIEWPORT_SETTLE_DELAY_MS
-			) {
-				settleFrameRef = requestAnimationFrame(checkViewportSettled)
-				return
-			}
-
-			settleFrameRef = null
-			isViewportMovingRef.current = false
-			edgeLabelViewportMoving.current = false
-			// Версия растёт не только при пересчёте раскладки, но и здесь:
-			// рёбра должны перерисоваться и смонтировать карточки, которые
-			// приехали в поле видимости во время движения.
-			layoutVersionRef.current += 1
-			setViewportSettleVersion(version => version + 1)
-		}
-
-		// Один rAF-цикл на жест вместо создания/сброса таймера на каждый кадр
-		// панорамирования.
-		const unsubscribe = xyflowStore.subscribe((state, previousState) => {
-			if (state.transform === previousState.transform) return
-
-			isViewportMovingRef.current = true
-			edgeLabelViewportMoving.current = true
-			lastTransformChangeTime = performance.now()
-			if (settleFrameRef === null) {
-				settleFrameRef = requestAnimationFrame(checkViewportSettled)
-			}
-		})
-
-		return () => {
-			if (settleFrameRef !== null) {
-				cancelAnimationFrame(settleFrameRef)
-			}
-			isViewportMovingRef.current = false
-			edgeLabelViewportMoving.current = false
-			unsubscribe()
-		}
-	}, [xyflowStore])
+	// Движение вьюпорта (панорамирование/зум) раскладку не инвалидирует:
+	// панорамирование не меняет позиции нод, а значит и смещения лейблов.
 
 	const { forcedRerenderValue } = useContext(ForceRerenderContext)
 
@@ -189,8 +133,8 @@ export function EdgeLabelLayoutProvider({
 	// Группы параллельных связей пересчитываются только при изменении набора
 	// связей, а не на каждый кадр перетаскивания нод.
 	const parallelEdgeDeltas = useMemo(
-		() => computeParallelEdgeDeltasByEdgeId(edges),
-		[edges],
+		() => computeParallelEdgeDeltasByEdgeId(xfEdges),
+		[xfEdges],
 	)
 
 	const layoutMapRef = useRef<Map<string, EdgeLabelLayoutEntry>>(new Map())
@@ -201,22 +145,21 @@ export function EdgeLabelLayoutProvider({
 	const layout = useMemo(
 		() => {
 			// Намеренные ключи инвалидации: внешний запрос «пересчитай»
-			// (forcedRerenderValue), факт окончания перетаскивания ноды
-			// (layoutVersion) и остановка вьюпорта (viewportSettleVersion).
+			// (forcedRerenderValue) и факт окончания перетаскивания ноды
+			// (layoutVersion).
 			void forcedRerenderValue
 			void layoutVersion
-			void viewportSettleVersion
 
-			// Пока нода перетаскивается или вьюпорт едет, оставляем предыдущую
-			// раскладку: карточки всё равно едут вместе с графом, а раскладка
-			// нужна только для разрешения коллизий. Пересчёт произойдёт сразу
-			// после того, как движение затихло.
-			if (isNodeDragging || isViewportMovingRef.current) {
+			// Пока нода перетаскивается, оставляем предыдущую раскладку:
+			// карточки всё равно едут вместе с графом, а раскладка нужна только
+			// для разрешения коллизий. Пересчёт произойдёт сразу после того, как
+			// нода отпущена.
+			if (isNodeDragging) {
 				return layoutMapRef.current
 			}
 
 			const v = computeEdgeLabelLayout(
-				edges,
+				xfEdges,
 				nodeLookup,
 				labelSizes,
 				parallelEdgeDeltas,
@@ -226,14 +169,13 @@ export function EdgeLabelLayoutProvider({
 			return v
 		},
 		[
-			edges,
+			xfEdges,
 			nodeLookup,
 			forcedRerenderValue,
 			labelSizes,
 			parallelEdgeDeltas,
 			isNodeDragging,
 			layoutVersion,
-			viewportSettleVersion,
 		],
 	)
 
@@ -241,14 +183,13 @@ export function EdgeLabelLayoutProvider({
 		get : (edgeId) => layoutMapRef.current.get(edgeId)
 	}).current
 
+	return children;
 	return (
 		<EdgeLayoutGetterByIdContext.Provider value={edgeLayoutGetterById}>
 		<EdgeLabelReportSizeContext.Provider value={reportSize}>
-			<EdgeLabelLayoutVersionContext.Provider value={layoutVersionRef.current}>
 			<EdgeLabelLayoutContext.Provider value={layout}>
 				{children}
 			</EdgeLabelLayoutContext.Provider>
-			</EdgeLabelLayoutVersionContext.Provider>
 		</EdgeLabelReportSizeContext.Provider>
 		</EdgeLayoutGetterByIdContext.Provider>
 	)

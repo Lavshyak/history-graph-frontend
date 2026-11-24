@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useContext, useRef, useState } from 'react'
+import {createContext, useCallback, useContext, useRef, useState} from 'react'
 import '@xyflow/react/dist/style.css'
 import {
 	Button,
@@ -21,7 +21,7 @@ import {
 	ControlButton,
 	Controls,
 	type FinalConnectionState,
-	MarkerType,
+	MarkerType, type OnNodesChange,
 	ReactFlow,
 	useReactFlow,
 	type XYPosition,
@@ -49,7 +49,6 @@ import { useXfNodesLocalState } from '@/widgets/GraphBoard/hooks/useXfNodesLocal
 import { useXfEdgesLocalState } from '@/widgets/GraphBoard/hooks/useXfEdgesLocalState.ts'
 import { useOnNodeContextMenuCallback } from '@/widgets/GraphBoard/hooks/useOnNodeContextMenuCallback.ts'
 import { useOnNodesChangeRaf } from '@/widgets/GraphBoard/hooks/useOnNodesChangeRaf.ts'
-import { useRafThrottledPan } from '@/widgets/GraphBoard/hooks/useRafThrottledPan.ts'
 import { useInitializeEffect } from '@/widgets/GraphBoard/hooks/useInitializeEffect.ts'
 import useRenderCountLogging from '@/shared/dev/useRenderCountLogging.ts'
 import RenderCountView from '@/shared/dev/RenderCountView.tsx'
@@ -73,8 +72,10 @@ const defaultEdgeOptions = {
 	},
 }
 
+export const XfEdgesContext = createContext<readonly XfEdge[]>([])
+
 export function GraphBoard() {
-	useRenderCountLogging('GraphBoard')
+	useRenderCountLogging('GraphBoard', true)
 
 	const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 	const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
@@ -148,11 +149,6 @@ export function GraphBoard() {
 		setMenu,
 	)
 
-	// Свой пан вместо встроенного (panOnDrag={false}): xyflow обновляет стор на
-	// каждое событие мыши, что на тысячах связей вешает главный поток на
-	// быстром движении. Здесь вьюпорт применяется раз в кадр.
-	useRafThrottledPan(reactFlowComponentRef)
-
 	// Close the context menu if it's open whenever the window is clicked.
 	const onPaneClick = useCallback(() => setMenu(null), [setMenu])
 
@@ -211,7 +207,7 @@ export function GraphBoard() {
 			<Splitter.Panel
 				collapsible={{ start: true, end: true, showCollapsibleIcon: true }}
 				min='20%'
-				defaultSize='80%'
+				defaultSize='100%'
 			>
 				<div style={{}}>
 					<RenderCountView />
@@ -221,12 +217,13 @@ export function GraphBoard() {
 							<div style={{ color: 'black', backgroundColor: 'white' }}>
 								<div style={{ height: '70vh', width: '100%' }}>
 									<EditableContext.Provider value={isEditable}>
+										<XfEdgesContext.Provider value={xfEdges}>
 										<EdgeLabelLayoutProvider>
 											<ReactFlow
 												ref={reactFlowComponentRef}
 												nodes={xfNodes as XfNode[]}
 												edges={xfEdges as XfEdge[]}
-												onNodesChange={onNodesChangeRaf}
+												onNodesChange={onNodesChangeRaf as OnNodesChange<XfNode>}
 												onEdgesChange={applyXfEdgeChanges}
 												minZoom={0.04} // максимальное отдаление
 												maxZoom={3} // максимальное приближение
@@ -238,8 +235,6 @@ export function GraphBoard() {
 												connectionLineStyle={connectionLineStyle}
 												onPaneContextMenu={onNodeContextMenu}
 												onPaneClick={onPaneClick}
-												// Панорамируем сами, по кадрам (useRafThrottledPan).
-												panOnDrag={false}
 												onConnectEnd={onConnectEnd}
 												connectOnClick={false}
 											>
@@ -273,6 +268,7 @@ export function GraphBoard() {
 												{isOpenPanelSortAndSearch && <SortAndSearchPanel />}
 											</ReactFlow>
 										</EdgeLabelLayoutProvider>
+										</XfEdgesContext.Provider>
 									</EditableContext.Provider>
 								</div>
 							</div>

@@ -1,3 +1,5 @@
+import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
+
 export type GetSpecialPathParams = {
     sourceX: number;
     sourceY: number;
@@ -23,6 +25,7 @@ export const getSpecialPath = (
     deltaMultiplier: number,
     extraOffset = 0,
 ) => {
+    devLog("getSpecialPath", true)
     /*
     * delta:
     * если связей 3, то их delta: [-1,0,1]

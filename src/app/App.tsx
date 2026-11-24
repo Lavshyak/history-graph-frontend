@@ -7,8 +7,10 @@ import { EdgeDatasStateManagerProvider } from '@/app/providers/EdgeDatasStateMan
 import { GraphDataHasChangesProvider } from '@/app/providers/GraphDataHasChangesProvider.tsx'
 import { queryClient } from '@/app/query-client.ts'
 import { GraphEditorPage } from '@/pages/GraphEditor/GraphEditorPage.tsx'
+import useRenderCountLogging from "@/shared/dev/useRenderCountLogging.ts";
 
 function App() {
+	useRenderCountLogging('App', true)
 	//const [pos, setPos] = useState(null)
 
 	return (
