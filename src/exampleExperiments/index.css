@@ -12,3 +12,58 @@ body {
     width: 100vw;
     height: 100vh;
 }
+
+/*
+  Performance overrides for the stress-test example.
+
+  The whole library theme ships inside an `@layer xyflow`, so these plain
+  (unlayered) rules win over it regardless of selector specificity. They only
+  apply to this example, because this stylesheet is imported by StressFlow.tsx.
+
+  Why:
+  - Nodes: every node carries a soft `box-shadow` (and, defensively, a
+    `backdrop-filter`). Painting hundreds of blurred shadows forces a repaint of
+    large areas on every pan/zoom frame, which is very expensive in Firefox.
+    Dropping both makes moving many nodes much cheaper.
+  - Edges: this example has no edge click/hover handlers, so all edges are
+    non-interactive. The library still enables stroke hit-testing on
+    `.react-flow__edge` / `.react-flow__edge-interaction`, and Firefox was
+    burning most of its time inside that HitTest. `pointer-events: none` removes
+    that work entirely.
+*/
+.react-flow__node,
+.react-flow__node.selectable:hover,
+.react-flow__node.selectable.selected,
+.react-flow__node.selectable:focus,
+.react-flow__node.selectable:focus:active,
+.react-flow__node.selectable:focus-visible {
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.react-flow__edge,
+.react-flow__edge .react-flow__edge-interaction {
+    pointer-events: none;
+}
+
+/*
+  Single-element edge layer (see CombinedEdges.tsx). All edges are drawn as one
+  <path>. It sits in the transformed viewport, must not capture pointer events,
+  and must paint *behind* the nodes (negative z-index inside the viewport's
+  stacking context, since the portal is appended after the nodes layer).
+*/
+.react-flow__edges-combined {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.react-flow__edge-path-combined {
+    stroke: var(--xy-edge-stroke, var(--xy-edge-stroke-default));
+    stroke-width: var(--xy-edge-stroke-width, var(--xy-edge-stroke-width-default));
+}

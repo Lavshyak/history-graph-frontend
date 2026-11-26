@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
     ReactFlow,
     useNodesState,
@@ -12,13 +12,21 @@ import {
 import './index.css';
 
 import { initialElements } from './initialElements.ts';
+import { CombinedEdges } from './CombinedEdges.tsx';
 
 const { nodes: initialNodes, edges: initialEdges } = initialElements(15, 30);
 
 const StressFlow = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+    // Edges are drawn by <CombinedEdges /> as a single SVG path, so we hand React
+    // Flow the same edges marked as `hidden`: it keeps them in its store (so
+    // connections/lookups stay consistent) but renders no per-edge DOM at all.
+    const hiddenEdges = useMemo(() => edges.map((edge) => ({ ...edge, hidden: true })), [edges]);
+
     const onConnect = useCallback(
+        // @ts-expect-error pofig
         (params) => setEdges((els) => addEdge(params, els)),
         [],
     );
@@ -41,13 +49,15 @@ const StressFlow = () => {
         <div style={{width:'90vw', height:'90vh'}}>
             <ReactFlow
                 nodes={nodes}
-                edges={edges}
+                edges={hiddenEdges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 fitView
                 minZoom={0}
+                //onlyRenderVisibleElements={true} // начинает фризить в хроме, в фирфоксе становится хуже
             >
+                <CombinedEdges edges={edges} />
                 <MiniMap />
                 <Controls />
                 <Background />
