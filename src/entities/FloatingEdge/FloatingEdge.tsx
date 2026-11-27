@@ -19,6 +19,7 @@ import type {EdgeData} from '@/model/edge/edgeData.ts'
 import {EdgeDatasStateManagerContext} from '@/model/graph/edgeDatasStateManagerContext.ts'
 import {
     EdgeLabelReportSizeContext,
+    EdgeLabelLayoutContext,
     EditableContext
 } from '@/entities/EdgeLabelLayout/contexts.ts'
 import type {LabelSize} from '@/entities/EdgeLabelLayout/edgeLabelLayout.ts'
@@ -27,7 +28,6 @@ import {getSpecialPath} from '@/entities/EdgeLabelLayout/getSpecialPath.ts'
 import {useKeyedEventHandling} from '@/shared/hooks/useKeyedEventHandling.ts'
 import RenderCountView from "@/shared/dev/RenderCountView.tsx";
 import {createRenderCountDict} from "@/shared/dev/useRenderCountDictRef.tsx";
-import {useEdgeLayoutGetterByIdContext} from "@/entities/EdgeLabelLayout/edgeLayoutGetterByIdContext.ts";
 import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
 
 const FloatingEdge = memo(FloatingEdge1)
@@ -101,14 +101,10 @@ function FloatingEdge1(props: EdgeProps<XfEdge>) {
 
     const isEditable = useContext(EditableContext)
 
-    // Подписка на версию раскладки: после её пересчёта (например, когда нода
-    // отпущена) ребро должно перерисоваться и взять новые смещения. Само
-    // значение не нужно — раскладка читается через геттер по id.
-    //useContext(EdgeLabelLayoutVersionContext)
-
     const labelCardRef = useRef<HTMLDivElement>(null)
 
-    const layoutEntry = useEdgeLayoutGetterByIdContext().get(thisEdgeId)
+    const edgeLabelLayout = useContext(EdgeLabelLayoutContext)
+    const layoutEntry = edgeLabelLayout.get(thisEdgeId)
     const pathDelta = layoutEntry?.pathDelta ?? 0
     const extraOffset = layoutEntry?.extraOffset ?? 0
     const deltaMultiplier = layoutEntry?.deltaMultiplier ?? 300
@@ -232,23 +228,27 @@ function FloatingEdgeLabelCard1({
                                 }: FloatingEdgeLabelCardProps) {
     devLog("FloatingEdgeLabelCard1", true)
 
-    {
-        const reportSize = useContext(EdgeLabelReportSizeContext)
-        const frameRef = useRef<number | undefined>(undefined)
-        const lastSizeRef = useRef({width: 0, height: 0})
-        const element = cardRef.current
-        if (element?.offsetWidth !== lastSizeRef.current.width ||
-            element?.offsetHeight !== lastSizeRef.current.height) {
+    const reportSize = useContext(EdgeLabelReportSizeContext)
 
-            if (!frameRef.current) {
-                frameRef.current = requestAnimationFrame(() => {
-                    frameRef.current = undefined
-                    reportSize(edgeId, {...lastSizeRef.current})
-                })
-            }
-            lastSizeRef.current = {width: lastSizeRef.current.width, height: lastSizeRef.current.height}
+    useLayoutEffect(() => {
+        const element = cardRef.current
+        if (!element) return
+
+        const reportElementSize = () => {
+            const width = element.offsetWidth
+            const height = element.offsetHeight
+            if (width <= 0 || height <= 0) return
+
+            reportSize(edgeId, {width, height})
         }
-    }
+
+        reportElementSize()
+
+        const resizeObserver = new ResizeObserver(reportElementSize)
+        resizeObserver.observe(element)
+
+        return () => resizeObserver.disconnect()
+    }, [cardRef, edgeId, reportSize])
 
     const currentData = data.currentData
 
