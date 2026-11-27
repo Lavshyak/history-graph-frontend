@@ -1,33 +1,30 @@
-export function initialElements(xNodes = 10, yNodes = 10) {
+export function initialElements(nodesCount = 3600, edgesCount = 3600) {
     const nodes = [];
     const edges = [];
-    let nodeId = 1;
-    let recentNodeId = null;
 
-    for (let y = 0; y < yNodes; y++) {
-        for (let x = 0; x < xNodes; x++) {
-            const position = { x: x * 100, y: y * 50 };
-            const data = { label: `Node ${nodeId}` };
-            const node = {
-                id: `stress-${nodeId.toString()}`,
-                style: { width: 50, fontSize: 11 },
-                data,
-                position,
-            };
-            nodes.push(node);
-
-            if (recentNodeId && nodeId <= xNodes * yNodes) {
-                edges.push({
-                    id: `${x}-${y}`,
-                    source: `stress-${recentNodeId.toString()}`,
-                    target: `stress-${nodeId.toString()}`,
-                });
-            }
-
-            recentNodeId = nodeId;
-            nodeId++;
-        }
+    for (let x = 0; x < nodesCount; x++) {
+        const position = { x: (x%Math.sqrt(nodesCount+1))*100, y: x/Math.sqrt(nodesCount+1)*100 };
+        const data = { label: `Node ${x}` };
+        const node = {
+            id: `stress-${x.toString()}`,
+            style: { width: 50, fontSize: 11 },
+            data,
+            position,
+        };
+        nodes.push(node);
     }
 
+    for (let x = 0; x < edgesCount; x++) {
+
+        const sourceNodeId = Math.floor(Math.random()*nodesCount)
+        const destNodeId = Math.floor(Math.random()*nodesCount)
+        edges.push({
+            id: `${sourceNodeId}-${destNodeId}`,
+            source: `stress-${sourceNodeId.toString()}`,
+            target: `stress-${destNodeId.toString()}`,
+        });
+    }
+
+    console.log({ nodes, edges })
     return { nodes, edges };
 }

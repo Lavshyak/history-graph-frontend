@@ -14,7 +14,7 @@ import './index.css';
 import { initialElements } from './initialElements.ts';
 import { CombinedEdges } from './CombinedEdges.tsx';
 
-const { nodes: initialNodes, edges: initialEdges } = initialElements(15, 30);
+const { nodes: initialNodes, edges: initialEdges } = initialElements();
 
 const StressFlow = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -37,8 +37,8 @@ const StressFlow = () => {
                 return {
                     ...node,
                     position: {
-                        x: Math.random() * 1500,
-                        y: Math.random() * 1500,
+                        x: Math.random() * 5000,
+                        y: Math.random() * 5000,
                     },
                 };
             });
