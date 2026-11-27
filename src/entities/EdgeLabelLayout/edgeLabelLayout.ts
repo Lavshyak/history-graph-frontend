@@ -43,7 +43,6 @@ type EdgeGeometry = {
 	ny: number
 	pathDelta: number
 	deltaMultiplier: number
-	size: LabelSize
 }
 
 type LabelBox = {
@@ -135,10 +134,14 @@ function getLabelCenter(geometry: EdgeGeometry, extraOffset: number) {
 	}
 }
 
-function getLabelBox(geometry: EdgeGeometry, extraOffset: number): LabelBox {
+function getLabelBox(
+	geometry: EdgeGeometry,
+	size: LabelSize,
+	extraOffset: number,
+): LabelBox {
 	const { x, y } = getLabelCenter(geometry, extraOffset)
-	const halfW = geometry.size.width / 2 + LABEL_CARD_PADDING
-	const halfH = geometry.size.height / 2 + LABEL_CARD_PADDING
+	const halfW = size.width / 2 + LABEL_CARD_PADDING
+	const halfH = size.height / 2 + LABEL_CARD_PADDING
 
 	return {
 		left: x - halfW,
@@ -247,6 +250,22 @@ class BoxIndex {
 	}
 }
 
+// Node boxes don't change when only label measurements change. Reuse their
+// spatial index while the immutable XYFlow nodeLookup instance stays the same.
+const nodeBoxIndexCache = new WeakMap<Map<string, InternalNode>, BoxIndex>()
+
+function getNodeBoxIndex(nodeLookup: Map<string, InternalNode>): BoxIndex {
+	const cached = nodeBoxIndexCache.get(nodeLookup)
+	if (cached) return cached
+
+	const index = new BoxIndex()
+	for (const box of getNodeBoxes(nodeLookup)) {
+		index.add(box)
+	}
+	nodeBoxIndexCache.set(nodeLookup, index)
+	return index
+}
+
 // Deterministic greedy placement.
 //
 // Cards are placed one by one. Each card first tries its natural position
@@ -257,6 +276,7 @@ class BoxIndex {
 // stable.
 function findFreeOffset(
 	geometry: EdgeGeometry,
+	size: LabelSize,
 	nodeBoxIndex: BoxIndex,
 	placedBoxIndex: BoxIndex,
 ): number {
@@ -275,7 +295,7 @@ function findFreeOffset(
 					: [-k * step, k * step]
 
 		for (const offset of candidates) {
-			const box = getLabelBox(geometry, offset)
+			const box = getLabelBox(geometry, size, offset)
 			if (
 				!nodeBoxIndex.overlapsAny(box) &&
 				!placedBoxIndex.overlapsAny(box)
@@ -291,36 +311,62 @@ function findFreeOffset(
 
 function resolveCollisions(
 	geometries: readonly EdgeGeometry[],
-	nodeBoxes: readonly LabelBox[],
+	nodeBoxIndex: BoxIndex,
+	labelSizes: ReadonlyMap<string, LabelSize>,
 ): Map<string, number> {
 	// Sort for determinism: the same graph always produces the same layout.
 	const ordered = [...geometries].sort((a, b) =>
 		compareIds(a.edgeId, b.edgeId),
 	)
 
-	const nodeBoxIndex = new BoxIndex()
-	for (const nodeBox of nodeBoxes) {
-		nodeBoxIndex.add(nodeBox)
-	}
-
 	const placedBoxIndex = new BoxIndex()
 	const offsets = new Map<string, number>()
 
 	for (const geometry of ordered) {
-		const offset = findFreeOffset(geometry, nodeBoxIndex, placedBoxIndex)
+		const size = labelSizes.get(geometry.edgeId) ?? DEFAULT_LABEL_SIZE
+		const offset = findFreeOffset(
+			geometry,
+			size,
+			nodeBoxIndex,
+			placedBoxIndex,
+		)
 		offsets.set(geometry.edgeId, offset)
-		placedBoxIndex.add(getLabelBox(geometry, offset))
+		placedBoxIndex.add(getLabelBox(geometry, size, offset))
 	}
 
 	return offsets
 }
 
-export function computeEdgeLabelLayout(
+type EdgeGeometryCache = WeakMap<
+	ReadonlyMap<string, number>,
+	readonly EdgeGeometry[]
+>
+
+const edgeGeometryCache = new WeakMap<
+	readonly XfEdge[],
+	WeakMap<Map<string, InternalNode>, EdgeGeometryCache>
+>()
+
+function getEdgeGeometries(
 	edges: readonly XfEdge[],
 	nodeLookup: Map<string, InternalNode>,
-	labelSizes: ReadonlyMap<string, LabelSize> = new Map(),
-	parallelEdgeDeltas: ReadonlyMap<string, number> = computeParallelEdgeDeltasByEdgeId(edges),
-): Map<string, EdgeLabelLayoutEntry> {
+	parallelEdgeDeltas: ReadonlyMap<string, number>,
+): readonly EdgeGeometry[] {
+	let geometriesByNodeLookup = edgeGeometryCache.get(edges)
+	if (!geometriesByNodeLookup) {
+		geometriesByNodeLookup = new WeakMap()
+		edgeGeometryCache.set(edges, geometriesByNodeLookup)
+	}
+
+	let geometriesByParallelDeltas = geometriesByNodeLookup.get(nodeLookup)
+	if (!geometriesByParallelDeltas) {
+		geometriesByParallelDeltas = new WeakMap()
+		geometriesByNodeLookup.set(nodeLookup, geometriesByParallelDeltas)
+	}
+
+	const cached = geometriesByParallelDeltas.get(parallelEdgeDeltas)
+	if (cached) return cached
+
 	const geometries: EdgeGeometry[] = []
 
 	for (const edge of edges) {
@@ -337,7 +383,6 @@ export function computeEdgeLabelLayout(
 
 		const pathDelta = parallelEdgeDeltas.get(edge.id) ?? 0
 		const deltaMultiplier = computeDeltaMultiplier()
-		const size = labelSizes.get(edge.id) ?? DEFAULT_LABEL_SIZE
 		const { labelX, labelY } = getSpecialPath(
 			{ sourceX: sx, sourceY: sy, targetX: tx, targetY: ty },
 			pathDelta,
@@ -356,12 +401,23 @@ export function computeEdgeLabelLayout(
 			ny: dx / length,
 			pathDelta,
 			deltaMultiplier,
-			size,
 		})
 	}
 
-	const nodeBoxes = getNodeBoxes(nodeLookup)
-	const extraOffsets = resolveCollisions(geometries, nodeBoxes)
+	geometriesByParallelDeltas.set(parallelEdgeDeltas, geometries)
+	return geometries
+}
+
+export function computeEdgeLabelLayout(
+	edges: readonly XfEdge[],
+	nodeLookup: Map<string, InternalNode>,
+	labelSizes: ReadonlyMap<string, LabelSize> = new Map(),
+	parallelEdgeDeltas: ReadonlyMap<string, number> = computeParallelEdgeDeltasByEdgeId(edges),
+): Map<string, EdgeLabelLayoutEntry> {
+	const geometries = getEdgeGeometries(edges, nodeLookup, parallelEdgeDeltas)
+
+	const nodeBoxIndex = getNodeBoxIndex(nodeLookup)
+	const extraOffsets = resolveCollisions(geometries, nodeBoxIndex, labelSizes)
 	const layout = new Map<string, EdgeLabelLayoutEntry>()
 
 	for (const geometry of geometries) {

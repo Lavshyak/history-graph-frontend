@@ -41,6 +41,7 @@ const SIZE_JITTER_EPSILON = 2
 // кадр. Она нужна только для разрешения коллизий, поэтому считаем её один раз,
 // когда движение затихло.
 const VIEWPORT_SETTLE_DELAY_MS = 120
+const LABEL_SIZE_SETTLE_DELAY_MS = 120
 
 function isSameSize(a: LabelSize, b: LabelSize): boolean {
 	return (
@@ -54,33 +55,47 @@ export function EdgeLabelLayoutProvider({
 }: EdgeLabelLayoutProviderProps) {
 	// xyflow'воский стейт
 	const edges = useStore(state => state.edges as XfEdge[])
-	// nodeLookup получает новую identity на каждое изменение ноды (включая
-	// перетаскивание), этого достаточно для пересчёта раскладки. Раньше здесь
-	// ещё строилась строка-подпись по всем нодам на любое изменение стора.
-	const nodeLookup = useStore(state => state.nodeLookup)
-	// Пока нода тащится, раскладка не нужна: карточки и так едут за нодами
-	// (путь каждой связи считается от их текущих позиций), а разрешение
-	// коллизий меняется незаметно. Пересчитываем только когда перетаскивание
-	// закончилось — иначе раскладка на сотни связей считалась каждый кадр.
-	const isNodeDragging = useStore(state =>
-		state.nodes.some(node => node.dragging === true),
-	)
+	const xyflowStore = useStoreApi()
 	const [layoutVersion, setLayoutVersion] = useState(0)
-	const wasDraggingRef = useRef(isNodeDragging)
+	const isNodeDraggingRef = useRef(
+		xyflowStore.getState().nodes.some(node => node.dragging === true),
+	)
 
 	useEffect(() => {
-		if (wasDraggingRef.current && !isNodeDragging) {
-			// Перетаскивание только что закончилось — посчитать раскладку по
-			// финальным позициям.
-			setLayoutVersion(version => version + 1)
-		}
-		wasDraggingRef.current = isNodeDragging
-	}, [isNodeDragging])
+		const initialState = xyflowStore.getState()
+		let previousNodes = initialState.nodes
+		let previousNodeLookup = initialState.nodeLookup
+		let wasDragging = isNodeDraggingRef.current
+
+		const unsubscribe = xyflowStore.subscribe(state => {
+			if (state.nodes !== previousNodes) {
+				previousNodes = state.nodes
+				isNodeDraggingRef.current = state.nodes.some(
+					node => node.dragging === true,
+				)
+			}
+
+			const isNodeDragging = isNodeDraggingRef.current
+			const nodeLookupChanged = state.nodeLookup !== previousNodeLookup
+			previousNodeLookup = state.nodeLookup
+
+			if (wasDragging && !isNodeDragging) {
+				// Перетаскивание закончилось — пересчитать по финальным позициям.
+				setLayoutVersion(version => version + 1)
+			} else if (nodeLookupChanged && !isNodeDragging) {
+				// Обновить раскладку и для изменений нод вне перетаскивания.
+				setLayoutVersion(version => version + 1)
+			}
+
+			wasDragging = isNodeDragging
+		})
+
+		return unsubscribe
+	}, [xyflowStore])
 
 	// Движение вьюпорта (панорамирование/зум) отслеживаем подпиской на стор
 	// xyflow, а не через useStore: так провайдер не перерисовывается каждый кадр
 	// панорамирования.
-	const xyflowStore = useStoreApi()
 	const isViewportMovingRef = useRef(false)
 	const [viewportSettleVersion, setViewportSettleVersion] = useState(0)
 
@@ -132,18 +147,17 @@ export function EdgeLabelLayoutProvider({
 
 	const { forcedRerenderValue } = useContext(ForceRerenderContext)
 
-	// Real, freshly measured sizes of the rendered relationship label cards.
-	const [labelSizes, setLabelSizes] = useState<ReadonlyMap<string, LabelSize>>(
-		() => new Map(),
-	)
-	const labelSizesRef = useRef(labelSizes)
-	labelSizesRef.current = labelSizes
+	// Keep measurements in a ref so each animation-frame batch doesn't render
+	// the provider. The layout is invalidated once the measurements settle.
+	const [labelSizesVersion, setLabelSizesVersion] = useState(0)
+	const labelSizesRef = useRef<Map<string, LabelSize>>(new Map())
 
 	// Замеры приходят от ResizeObserver'ов по одному. Копим их и применяем
-	// пачкой раз в кадр: иначе на каждый лейбл пересчитывалась вся раскладка и
-	// ре-рендерились все рёбра.
+	// пачкой раз в кадр, а раскладку пересчитываем после того, как размеры
+	// перестали меняться.
 	const pendingSizesRef = useRef<Map<string, LabelSize>>(new Map())
 	const sizeFlushFrameRef = useRef<number | null>(null)
+	const sizeLayoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	const flushPendingSizes = useCallback(() => {
 		sizeFlushFrameRef.current = null
@@ -152,25 +166,35 @@ export function EdgeLabelLayoutProvider({
 		if (pending.size === 0) return
 		pendingSizesRef.current = new Map()
 
-		setLabelSizes(previous => {
-			const next = new Map(previous)
-			let hasChanges = false
+		let hasChanges = false
 
-			pending.forEach((size, edgeId) => {
-				const existing = next.get(edgeId)
-				if (existing && isSameSize(existing, size)) return
-				next.set(edgeId, size)
-				hasChanges = true
-			})
-
-			return hasChanges ? next : previous
+		pending.forEach((size, edgeId) => {
+			const existing = labelSizesRef.current.get(edgeId)
+			if (existing && isSameSize(existing, size)) return
+			labelSizesRef.current.set(edgeId, size)
+			hasChanges = true
 		})
+
+		if (!hasChanges) return
+
+		if (sizeLayoutTimerRef.current !== null) {
+			clearTimeout(sizeLayoutTimerRef.current)
+		}
+		sizeLayoutTimerRef.current = setTimeout(() => {
+			sizeLayoutTimerRef.current = null
+			setLabelSizesVersion(version => version + 1)
+		}, LABEL_SIZE_SETTLE_DELAY_MS)
 	}, [])
 
 	const reportSize = useCallback((edgeId: string, size: LabelSize) => {
 		const existing = labelSizesRef.current.get(edgeId)
+		const pending = pendingSizesRef.current.get(edgeId)
 		// Ignore sub-pixel jitter to avoid an endless measure → relayout loop.
-		if (existing && isSameSize(existing, size)) return
+		if (pending && isSameSize(pending, size)) return
+		if (existing && isSameSize(existing, size)) {
+			pendingSizesRef.current.delete(edgeId)
+			return
+		}
 
 		pendingSizesRef.current.set(edgeId, size)
 		if (sizeFlushFrameRef.current === null) {
@@ -182,6 +206,9 @@ export function EdgeLabelLayoutProvider({
 		return () => {
 			if (sizeFlushFrameRef.current !== null) {
 				cancelAnimationFrame(sizeFlushFrameRef.current)
+			}
+			if (sizeLayoutTimerRef.current !== null) {
+				clearTimeout(sizeLayoutTimerRef.current)
 			}
 		}
 	}, [])
@@ -202,23 +229,25 @@ export function EdgeLabelLayoutProvider({
 		() => {
 			// Намеренные ключи инвалидации: внешний запрос «пересчитай»
 			// (forcedRerenderValue), факт окончания перетаскивания ноды
-			// (layoutVersion) и остановка вьюпорта (viewportSettleVersion).
+			// (layoutVersion), остановка вьюпорта (viewportSettleVersion) и
+			// стабилизация размеров карточек (labelSizesVersion).
 			void forcedRerenderValue
 			void layoutVersion
 			void viewportSettleVersion
+			void labelSizesVersion
 
 			// Пока нода перетаскивается или вьюпорт едет, оставляем предыдущую
 			// раскладку: карточки всё равно едут вместе с графом, а раскладка
 			// нужна только для разрешения коллизий. Пересчёт произойдёт сразу
 			// после того, как движение затихло.
-			if (isNodeDragging || isViewportMovingRef.current) {
+			if (isNodeDraggingRef.current || isViewportMovingRef.current) {
 				return layoutMapRef.current
 			}
 
 			const v = computeEdgeLabelLayout(
 				edges,
-				nodeLookup,
-				labelSizes,
+				xyflowStore.getState().nodeLookup,
+				labelSizesRef.current,
 				parallelEdgeDeltas,
 			)
 			layoutMapRef.current = v
@@ -227,11 +256,10 @@ export function EdgeLabelLayoutProvider({
 		},
 		[
 			edges,
-			nodeLookup,
 			forcedRerenderValue,
-			labelSizes,
+			labelSizesVersion,
 			parallelEdgeDeltas,
-			isNodeDragging,
+			xyflowStore,
 			layoutVersion,
 			viewportSettleVersion,
 		],
