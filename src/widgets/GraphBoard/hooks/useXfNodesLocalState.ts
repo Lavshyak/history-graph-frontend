@@ -1,10 +1,11 @@
 import {type NodeChange, type NodeChangeset, type XYPosition} from "@xyflow/react";
 import type {NodeDatasStateManager} from "@/model/node/createNodeDatasStateManager.ts";
-import {useLocalState} from "@/shared/hooks/useLocalState.ts";
 import type {XfNode} from "@/shared/types/xyflow.ts";
 import type {NodeDataIdType} from "@/model/node/nodeData.ts";
+import {createStore, type StoreApi} from "zustand/vanilla";
+import {useRef} from "react";
 
-type XfNodesLocalState = {
+export type XfNodesLocalState = {
     xfNodes: readonly Readonly<XfNode>[]
     addXfNode(nodeId: NodeDataIdType): void
     removeXfNode(nodeId: NodeDataIdType): void
@@ -12,8 +13,14 @@ type XfNodesLocalState = {
     setXfNodePositions(positions: ReadonlyMap<string, XYPosition>): void
 }
 
-export function useXfNodesLocalState(recommendedNodePositionsOnAdd: Map<string, XYPosition>, nodeDatasStateManager: NodeDatasStateManager) {
-    return useLocalState<XfNodesLocalState>((set, get) => {
+export function useXfNodesLocalStore(
+    recommendedNodePositionsOnAdd: Map<string, XYPosition>,
+    nodeDatasStateManager: NodeDatasStateManager,
+): StoreApi<XfNodesLocalState> {
+    const storeRef = useRef<StoreApi<XfNodesLocalState> | null>(null)
+    if (storeRef.current) return storeRef.current
+
+    storeRef.current = createStore<XfNodesLocalState>((set, get) => {
         function resolveNodePosition(nodeId: NodeDataIdType): XYPosition {
             const recommendedPosition = recommendedNodePositionsOnAdd.get(nodeId)
             if (recommendedPosition) return recommendedPosition
@@ -93,4 +100,6 @@ export function useXfNodesLocalState(recommendedNodePositionsOnAdd: Map<string, 
             },
         }
     })
+
+    return storeRef.current
 }

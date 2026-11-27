@@ -1,4 +1,4 @@
-import {useInternalNode, useNodesStore} from '@xyflow/react'
+import {useNodesInitialized, useReactFlowStoreApi} from '@xyflow/react'
 import {
 	type ReactNode,
 	useCallback,
@@ -8,7 +8,7 @@ import {
 	useState,
 } from 'react'
 
-import type { XfEdge } from '@/shared/types/xyflow.ts'
+import type { XfEdge, XfNode } from '@/shared/types/xyflow.ts'
 import { ForceRerenderContext } from '@/model/graph/forceRerenderContext.ts'
 import {
 	computeEdgeLabelLayout,
@@ -19,16 +19,14 @@ import {
 	EdgeLabelLayoutContext,
 	EdgeLabelReportSizeContext,
 } from '@/entities/EdgeLabelLayout/contexts.ts'
-import {
-	EdgeLayoutGetterByIdContext,
-	type EdgeLayoutGetterByIdContextType
-} from "@/entities/EdgeLabelLayout/edgeLayoutGetterByIdContext.ts";
 import type {EdgeLabelLayoutEntry} from "@/entities/EdgeLabelLayout/edgeLabelLayout.ts";
-import {now} from "lodash";
-import {XfEdgesContext} from "@/widgets/GraphBoard/GraphBoard.tsx";
+import {XfEdgesContext} from "@/model/graph/xfEdgesContext.ts";
 
 type EdgeLabelLayoutProviderProps = {
 	children: ReactNode
+	isNodeDragging: boolean
+	nodeCount: number
+	layoutRevision: number
 }
 
 // Два размера считаются одинаковыми, если отличаются меньше чем на 4px:
@@ -42,35 +40,40 @@ function isSameSize(a: LabelSize, b: LabelSize): boolean {
 	)
 }
 
+function isSameLayout(
+	current: ReadonlyMap<string, EdgeLabelLayoutEntry>,
+	next: ReadonlyMap<string, EdgeLabelLayoutEntry>,
+): boolean {
+	if (current.size !== next.size) return false
+
+	for (const [edgeId, nextEntry] of next) {
+		const currentEntry = current.get(edgeId)
+		if (
+			!currentEntry ||
+			currentEntry.pathDelta !== nextEntry.pathDelta ||
+			currentEntry.extraOffset !== nextEntry.extraOffset ||
+			currentEntry.deltaMultiplier !== nextEntry.deltaMultiplier
+		) {
+			return false
+		}
+	}
+
+	return true
+}
+
 export function EdgeLabelLayoutProvider({
 	children,
+	isNodeDragging,
+	nodeCount,
+	layoutRevision,
 }: EdgeLabelLayoutProviderProps) {
-	return children;
-	// xyflow'воский стейт
+	const {nodesStore} = useReactFlowStoreApi<XfNode, XfEdge>()
+	const nodesInitialized = useNodesInitialized()
 	const xfEdges = useContext(XfEdgesContext)
-	// nodeLookup получает новую identity на каждое изменение ноды (включая
-	// перетаскивание), этого достаточно для пересчёта раскладки. Раньше здесь
-	// ещё строилась строка-подпись по всем нодам на любое изменение стора.
-	const nodeLookup = useNodesStore(state => state.nodeLookup)
 	// Пока нода тащится, раскладка не нужна: карточки и так едут за нодами
 	// (путь каждой связи считается от их текущих позиций), а разрешение
 	// коллизий меняется незаметно. Пересчитываем только когда перетаскивание
 	// закончилось — иначе раскладка на сотни связей считалась каждый кадр.
-	const isNodeDragging = useNodesStore(state =>
-		state.nodes.some(node => node.dragging === true),
-	)
-	const [layoutVersion, setLayoutVersion] = useState(0)
-	const wasDraggingRef = useRef(isNodeDragging)
-
-	useEffect(() => {
-		if (wasDraggingRef.current && !isNodeDragging) {
-			// Перетаскивание только что закончилось — посчитать раскладку по
-			// финальным позициям.
-			setLayoutVersion(version => version + 1)
-		}
-		wasDraggingRef.current = isNodeDragging
-	}, [isNodeDragging])
-
 	// Движение вьюпорта (панорамирование/зум) раскладку не инвалидирует:
 	// панорамирование не меняет позиции нод, а значит и смещения лейблов.
 
@@ -88,6 +91,31 @@ export function EdgeLabelLayoutProvider({
 	// ре-рендерились все рёбра.
 	const pendingSizesRef = useRef<Map<string, LabelSize>>(new Map())
 	const sizeFlushFrameRef = useRef<number | null>(null)
+
+	useEffect(() => {
+		const activeEdgeIds = new Set(xfEdges.map(edge => edge.id))
+
+		for (const edgeId of pendingSizesRef.current.keys()) {
+			if (!activeEdgeIds.has(edgeId)) {
+				pendingSizesRef.current.delete(edgeId)
+			}
+		}
+
+		setLabelSizes(previous => {
+			let hasRemovedSizes = false
+			const next = new Map<string, LabelSize>()
+
+			for (const [edgeId, size] of previous) {
+				if (activeEdgeIds.has(edgeId)) {
+					next.set(edgeId, size)
+				} else {
+					hasRemovedSizes = true
+				}
+			}
+
+			return hasRemovedSizes ? next : previous
+		})
+	}, [xfEdges])
 
 	const flushPendingSizes = useCallback(() => {
 		sizeFlushFrameRef.current = null
@@ -138,17 +166,13 @@ export function EdgeLabelLayoutProvider({
 	)
 
 	const layoutMapRef = useRef<Map<string, EdgeLabelLayoutEntry>>(new Map())
-	// Версия увеличивается только при реальном пересчёте раскладки — по ней
-	// рёбра понимают, что пора перерисоваться с новыми смещениями.
-	const layoutVersionRef = useRef(0)
-
 	const layout = useMemo(
 		() => {
-			// Намеренные ключи инвалидации: внешний запрос «пересчитай»
-			// (forcedRerenderValue) и факт окончания перетаскивания ноды
-			// (layoutVersion).
+			// Invalidation signals trigger a fresh store snapshot without subscribing to node positions.
 			void forcedRerenderValue
-			void layoutVersion
+			void nodeCount
+			void nodesInitialized
+			void layoutRevision
 
 			// Пока нода перетаскивается, оставляем предыдущую раскладку:
 			// карточки всё равно едут вместе с графом, а раскладка нужна только
@@ -158,39 +182,40 @@ export function EdgeLabelLayoutProvider({
 				return layoutMapRef.current
 			}
 
-			const v = computeEdgeLabelLayout(
+			const nodeLookup = nodesStore.getState().nodeLookup
+			const nextLayout = computeEdgeLabelLayout(
 				xfEdges,
 				nodeLookup,
 				labelSizes,
 				parallelEdgeDeltas,
 			)
-			layoutMapRef.current = v
-			layoutVersionRef.current += 1
-			return v
+			const isUnchanged = isSameLayout(layoutMapRef.current, nextLayout)
+
+			if (isUnchanged) {
+				return layoutMapRef.current
+			}
+
+			layoutMapRef.current = nextLayout
+			return nextLayout
 		},
 		[
 			xfEdges,
-			nodeLookup,
+			nodesStore,
 			forcedRerenderValue,
 			labelSizes,
 			parallelEdgeDeltas,
 			isNodeDragging,
-			layoutVersion,
+			nodeCount,
+			nodesInitialized,
+			layoutRevision,
 		],
 	)
 
-	const edgeLayoutGetterById = useRef<EdgeLayoutGetterByIdContextType>({
-		get : (edgeId) => layoutMapRef.current.get(edgeId)
-	}).current
-
-	return children;
 	return (
-		<EdgeLayoutGetterByIdContext.Provider value={edgeLayoutGetterById}>
 		<EdgeLabelReportSizeContext.Provider value={reportSize}>
 			<EdgeLabelLayoutContext.Provider value={layout}>
 				{children}
 			</EdgeLabelLayoutContext.Provider>
 		</EdgeLabelReportSizeContext.Provider>
-		</EdgeLayoutGetterByIdContext.Provider>
 	)
 }
