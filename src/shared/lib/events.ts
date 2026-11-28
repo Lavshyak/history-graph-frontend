@@ -3,6 +3,14 @@ export type NormalListenableEvent<TPayload> = {
     off(handler: EventHandler<TPayload>): void
 }
 
+export function emptyNormalListenableEvent<TPayload> () : NormalListenableEvent<TPayload>
+{
+    return {
+        on(){},
+        off(){}
+    }
+}
+
 export type NormalEvent<TPayload> = NormalListenableEvent<TPayload> & {
     emit(payload: TPayload): void
 }

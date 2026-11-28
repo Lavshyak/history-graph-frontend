@@ -9,7 +9,7 @@ import {
     useLayoutEffect,
     useMemo,
     useRef,
-    useState,
+    useState, createContext, useEffect,
 } from 'react'
 
 import {Button, Collapse, Flex} from 'antd'
@@ -29,6 +29,9 @@ import {useKeyedEventHandling} from '@/shared/hooks/useKeyedEventHandling.ts'
 import RenderCountView from "@/shared/dev/RenderCountView.tsx";
 import {createRenderCountDict} from "@/shared/dev/useRenderCountDictRef.tsx";
 import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
+import * as React from "react";
+import {useEventHandling} from "@/shared/hooks/useEventHandling.ts";
+
 
 const FloatingEdge = memo(FloatingEdge1)
 
@@ -51,7 +54,7 @@ type EdgePathLayerProps = {
 // этом обычно те же — в профилере BaseEdge съедал ~100 мс на 900 рёбер именно
 // из-за нового объекта style и пересоздания SVG-пути. С memo сам <path> не
 // трогается, пока не изменились path/markerEnd/style.
-const EdgePathLayer = memo(function EdgePathLayer({id, path, markerEnd, style}: EdgePathLayerProps) {
+/*const EdgePathLayer = memo(function EdgePathLayer({id, path, markerEnd, style}: EdgePathLayerProps) {
     devLog("EdgePathLayer", true)
     return (
         <BaseEdge
@@ -62,6 +65,17 @@ const EdgePathLayer = memo(function EdgePathLayer({id, path, markerEnd, style}: 
             style={style}
         />
     )
+})*/
+
+// TODO: у path может быть разный стиль (цвет, толщина), надо будет позаботиться об этом
+export type EdgePathChanging = {
+    edgeId: string
+    path?: string,
+    markerEnd?: string,
+    deleted?: boolean
+}
+
+export const EdgePathChangingNotifyContext = createContext<(edgepathChanging: EdgePathChanging) => void>(() => {
 })
 
 function FloatingEdge1(props: EdgeProps<XfEdge>) {
@@ -164,6 +178,21 @@ function FloatingEdge1(props: EdgeProps<XfEdge>) {
 
     const {path, labelX, labelY} = edgeGeometry
 
+    const edgePathChangingNotify = useContext(EdgePathChangingNotifyContext)
+    useEffect(() => {
+        edgePathChangingNotify({
+            edgeId: thisEdgeId,
+            markerEnd: markerEnd,
+            path: path
+        })
+        return () => {
+            edgePathChangingNotify({
+                edgeId: thisEdgeId,
+                deleted: true
+            })
+        }
+    }, [path, markerEnd, edgePathChangingNotify, thisEdgeId])
+
     const baseEdgeMemoized = useMemo(() => <BaseEdge
         id={thisEdgeId}
         className='react-flow__edge-path'
@@ -179,7 +208,7 @@ function FloatingEdge1(props: EdgeProps<XfEdge>) {
 
     return (
         <>
-            {baseEdgeMemoized}
+            {/*{baseEdgeMemoized}*/}
             <EdgeLabelRenderer>
                 <div
                     className='nodrag nopan'

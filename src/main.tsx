@@ -4,7 +4,7 @@ import {createRoot} from 'react-dom/client'
 //import App from '@/app/App.tsx'
 //import StressFlow from '@/exampleExperiments/StressFlow.tsx'
 
-const isReactFlowExample = true
+const isReactFlowExample = false
 
 const isStrictMode = false
 

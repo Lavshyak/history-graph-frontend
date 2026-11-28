@@ -23,7 +23,7 @@ import {
 	type FinalConnectionState,
 	type NodeChangeset,
 	type OnNodesChange,
-	useReactFlow,
+	useReactFlow, ViewportPortal,
 	type XYPosition,
 } from '@xyflow/react'
 
@@ -51,6 +51,9 @@ import { useOnNodesChangeRaf } from '@/widgets/GraphBoard/hooks/useOnNodesChange
 import { useInitializeEffect } from '@/widgets/GraphBoard/hooks/useInitializeEffect.ts'
 import useRenderCountLogging from '@/shared/dev/useRenderCountLogging.ts'
 import RenderCountView from '@/shared/dev/RenderCountView.tsx'
+import {CombinedEdgesOur, EdgePathChangedEventContext} from "@/entities/CombinedEdgesOur.tsx";
+import {createNormalEvent} from "@/shared/lib/events.ts";
+import {type EdgePathChanging, EdgePathChangingNotifyContext} from "@/entities/FloatingEdge/FloatingEdge.tsx";
 
 export function GraphBoard() {
 	useRenderCountLogging('GraphBoard', true)
@@ -208,6 +211,9 @@ export function GraphBoard() {
 		[edgeDatasStateManager],
 	)
 
+	const edgePathChangedEvent = useRef(createNormalEvent<EdgePathChanging>()).current
+	const edgePathChangingNotify = useRef(edgePathChangedEvent.emit).current
+
 	return (
 		<Splitter
 			className='all-view-splitter'
@@ -226,6 +232,8 @@ export function GraphBoard() {
 							<div style={{ color: 'black', backgroundColor: 'white' }}>
 								<div style={{ height: '70vh', width: '100%' }}>
 									<EditableContext.Provider value={isEditable}>
+										<EdgePathChangingNotifyContext.Provider value={edgePathChangingNotify}>
+										<EdgePathChangedEventContext.Provider value={edgePathChangedEvent}>
 										<XfEdgesContext.Provider value={xfEdges}>
 										<EdgeLabelLayoutProvider
 											isNodeDragging={isNodeDragging}
@@ -250,6 +258,9 @@ export function GraphBoard() {
 													connectOnClick: false,
 												}}
 											>
+												<ViewportPortal>
+													<CombinedEdgesOur/>
+												</ViewportPortal>
 												<RenderCountView />
 												<Controls showInteractive={true}>
 													<ControlButton
@@ -280,6 +291,8 @@ export function GraphBoard() {
 											</GraphFlowCanvas>
 										</EdgeLabelLayoutProvider>
 										</XfEdgesContext.Provider>
+										</EdgePathChangedEventContext.Provider>
+										</EdgePathChangingNotifyContext.Provider>
 									</EditableContext.Provider>
 								</div>
 							</div>

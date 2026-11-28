@@ -23,7 +23,7 @@ import type {
 export const devGraphGeneratorParams: DevGraphGeneratorParams = {
 	sourceNodesCount: 2,
 	createdNodesCount: 0,
-	sourceEdgesCount: 1000,
+	sourceEdgesCount: 3,
 	createdEdgesCount: 0,
 	randomSeed: 12345,
 }/*export const devGraphGeneratorParams: DevGraphGeneratorParams = {
