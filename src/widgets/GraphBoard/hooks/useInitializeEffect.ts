@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useEffect } from 'react'
+import {useContext, useEffect} from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { DtoEventsAndRelationships } from '@/api/generated/types/DtoEventsAndRelationships.ts'
 import type { XYPosition } from '@xyflow/react'
@@ -17,6 +17,7 @@ import type {
 	ResponseConfig,
 	ResponseErrorConfig,
 } from '@kubb/plugin-client/clients/axios'
+import {InitGenContext} from "@/app/InitGenContext.ts";
 
 // Параметры dev графа: (source ноды, created ноды, source связи, created связи, seed).
 // Крути эти числа, когда хочется поиграться на графе побольше трёх нод.
@@ -45,9 +46,26 @@ export function useInitializeEffect(
 	edgeDatasStateManager: EdgeDatasStateManager,
 	fitView: () => void,
 ) {
+	const initGenContextValue = useContext(InitGenContext)
 	return useEffect(() => {
 		if (isInitialized.current) return
 		isInitialized.current = true
+
+		if(initGenContextValue){
+			void generateDevGraph(
+				initGenContextValue.sourceNodesCount,
+				initGenContextValue.createdNodesCount,
+				initGenContextValue.sourceEdgesCount,
+				initGenContextValue.createdEdgesCount,
+				initGenContextValue.randomSeed,
+				nodeDatasStateManager,
+				edgeDatasStateManager,
+				initGenContextValue.sort === "desc",
+				recommendedNodePositionsOnAdd,
+			).then(() => fitViewAfterPaint(fitView))
+			return
+		}
+
 		const isSortGraph = useToggleStore.getState().isSortGraph
 
 		const rawData = getAllQuery.data?.data
