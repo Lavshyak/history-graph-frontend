@@ -29,8 +29,8 @@ import {useKeyedEventHandling} from '@/shared/hooks/useKeyedEventHandling.ts'
 import RenderCountView from "@/shared/dev/RenderCountView.tsx";
 import {createRenderCountDict} from "@/shared/dev/useRenderCountDictRef.tsx";
 import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
-import * as React from "react";
 import {useEventHandling} from "@/shared/hooks/useEventHandling.ts";
+import {createNormalEvent, type NormalEvent} from "@/shared/lib/events.ts";
 
 
 const FloatingEdge = memo(FloatingEdge1)
@@ -68,15 +68,28 @@ type EdgePathLayerProps = {
 })*/
 
 // TODO: у path может быть разный стиль (цвет, толщина), надо будет позаботиться об этом
+export type EdgePathEndTip = {
+    x: number
+    y: number
+    // угол касательной в конце пути, в радианах (координаты SVG, y вниз)
+    angle: number
+}
+
 export type EdgePathChanging = {
     edgeId: string
     path?: string,
     markerEnd?: string,
+    endTip?: EdgePathEndTip,
     deleted?: boolean
 }
 
 export const EdgePathChangingNotifyContext = createContext<(edgepathChanging: EdgePathChanging) => void>(() => {
 })
+
+// Запрос «опубликуйте свои пути заново». Нужен при первом рендере: CombinedEdgesOur
+// рендерится в портал вьюпорта, а он монтируется после слоя рёбер, поэтому первые
+// публикации рёбер проходят раньше, чем CombinedEdgesOur подпишется на них.
+export const EdgePathPublishRequestContext = createContext<NormalEvent<void>>(createNormalEvent<void>())
 
 function FloatingEdge1(props: EdgeProps<XfEdge>) {
     devLog("FloatingEdge1", true)
@@ -176,22 +189,38 @@ function FloatingEdge1(props: EdgeProps<XfEdge>) {
         [style, strokeColor],
     )
 
-    const {path, labelX, labelY} = edgeGeometry
+    const {path, labelX, labelY, endX, endY, endAngle} = edgeGeometry
 
     const edgePathChangingNotify = useContext(EdgePathChangingNotifyContext)
-    useEffect(() => {
+    const edgePathPublishRequestEvent = useContext(EdgePathPublishRequestContext)
+
+    // Публикуем путь при монтировании и при каждом его изменении.
+    const publishPath = useCallback(() => {
         edgePathChangingNotify({
             edgeId: thisEdgeId,
             markerEnd: markerEnd,
-            path: path
+            path: path,
+            endTip: {x: endX, y: endY, angle: endAngle},
         })
+    }, [edgePathChangingNotify, thisEdgeId, markerEnd, path, endX, endY, endAngle])
+
+    useEffect(() => {
+        publishPath()
+    }, [publishPath])
+
+    // Убираем путь из общего слоя, когда ребро размонтируется.
+    useEffect(() => {
         return () => {
             edgePathChangingNotify({
                 edgeId: thisEdgeId,
                 deleted: true
             })
         }
-    }, [path, markerEnd, edgePathChangingNotify, thisEdgeId])
+    }, [edgePathChangingNotify, thisEdgeId])
+
+    // Отвечаем на запрос CombinedEdgesOur: см. EdgePathPublishRequestContext.
+    // Переподписываемся на изменение publishPath, иначе запрос вернул бы старый путь.
+    useEventHandling(edgePathPublishRequestEvent, publishPath, true, true)
 
     const baseEdgeMemoized = useMemo(() => <BaseEdge
         id={thisEdgeId}

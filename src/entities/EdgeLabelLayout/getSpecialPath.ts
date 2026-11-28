@@ -72,5 +72,10 @@ export const getSpecialPath = (
         path: `M ${sourceX} ${sourceY} Q ${centerX} ${centerY} ${targetX} ${targetY}`,
         labelX,
         labelY,
+        // Конец пути и направление касательной в нём: нужны, чтобы нарисовать
+        // стрелку самим (SVG рисует marker-end только в конце всего составного path).
+        endX: targetX,
+        endY: targetY,
+        endAngle: Math.atan2(targetY - centerY, targetX - centerX),
     };
 };

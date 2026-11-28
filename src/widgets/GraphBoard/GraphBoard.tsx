@@ -53,7 +53,7 @@ import useRenderCountLogging from '@/shared/dev/useRenderCountLogging.ts'
 import RenderCountView from '@/shared/dev/RenderCountView.tsx'
 import {CombinedEdgesOur, EdgePathChangedEventContext} from "@/entities/CombinedEdgesOur.tsx";
 import {createNormalEvent} from "@/shared/lib/events.ts";
-import {type EdgePathChanging, EdgePathChangingNotifyContext} from "@/entities/FloatingEdge/FloatingEdge.tsx";
+import {type EdgePathChanging, EdgePathChangingNotifyContext, EdgePathPublishRequestContext} from "@/entities/FloatingEdge/FloatingEdge.tsx";
 
 export function GraphBoard() {
 	useRenderCountLogging('GraphBoard', true)
@@ -213,6 +213,7 @@ export function GraphBoard() {
 
 	const edgePathChangedEvent = useRef(createNormalEvent<EdgePathChanging>()).current
 	const edgePathChangingNotify = useRef(edgePathChangedEvent.emit).current
+	const edgePathPublishRequestEvent = useRef(createNormalEvent<void>()).current
 
 	return (
 		<Splitter
@@ -232,6 +233,7 @@ export function GraphBoard() {
 							<div style={{ color: 'black', backgroundColor: 'white' }}>
 								<div style={{ height: '70vh', width: '100%' }}>
 									<EditableContext.Provider value={isEditable}>
+										<EdgePathPublishRequestContext.Provider value={edgePathPublishRequestEvent}>
 										<EdgePathChangingNotifyContext.Provider value={edgePathChangingNotify}>
 										<EdgePathChangedEventContext.Provider value={edgePathChangedEvent}>
 										<XfEdgesContext.Provider value={xfEdges}>
@@ -293,6 +295,7 @@ export function GraphBoard() {
 										</XfEdgesContext.Provider>
 										</EdgePathChangedEventContext.Provider>
 										</EdgePathChangingNotifyContext.Provider>
+										</EdgePathPublishRequestContext.Provider>
 									</EditableContext.Provider>
 								</div>
 							</div>
