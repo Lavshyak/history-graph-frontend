@@ -2,13 +2,13 @@ import type {EdgeDatasStateManager} from "@/model/edge/createEdgeDatasStateManag
 import {useLocalState} from "@/shared/hooks/useLocalState.ts";
 import type {XfEdge} from "@/shared/types/xyflow.ts";
 import type {EdgeDataIdType} from "@/model/edge/edgeData.ts";
-import {applyEdgeChanges, type EdgeChange} from "@xyflow/react";
+import {type EdgeChange, type EdgeChangeset} from "@xyflow/react";
 
 type XfEdgesLocalState = {
     xfEdges: readonly Readonly<XfEdge>[]
     addXfEdge(edgeId: EdgeDataIdType): void
     removeXfEdge(edgeId: EdgeDataIdType): void
-    applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]): void
+    applyXfEdgeChanges(changes: EdgeChangeset<XfEdge>): void
 }
 
 export function useXfEdgesLocalState(edgeDatasStateManager: EdgeDatasStateManager) {
@@ -64,9 +64,9 @@ export function useXfEdgesLocalState(edgeDatasStateManager: EdgeDatasStateManage
                     xfEdges: state.xfEdges.filter(x => x.id !== edgeId),
                 }))
             },
-            applyXfEdgeChanges(changes: EdgeChange<XfEdge>[]) {
+            applyXfEdgeChanges(changes: EdgeChangeset<XfEdge>) {
                 const currentEdges = get().xfEdges
-                const newEdges = applyEdgeChanges(changes, currentEdges as XfEdge[])
+                const newEdges = changes.applyTo(currentEdges as XfEdge[])
                 set({
                     xfEdges: newEdges,
                 })

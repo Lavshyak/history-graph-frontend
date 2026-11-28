@@ -1,13 +1,13 @@
-import type {NodeChange} from "@xyflow/react";
+import {NodeChangeset, type NodeChange} from "@xyflow/react";
 import type {XfNode} from "@/shared/types/xyflow.ts";
 import {useCallback, useRef} from "react";
 
-export function useOnNodesChangeRaf(applyXfNodeChanges: (nodeChanges: NodeChange<XfNode>[]) => void) {
+export function useOnNodesChangeRaf(applyXfNodeChanges: (nodeChanges: NodeChangeset<XfNode>) => void) {
     const frameRef = useRef<number | null>(null)
     const pendingPositionChangesRef = useRef<NodeChange<XfNode>[]>([])
 
     return useCallback(
-        (changes: NodeChange<XfNode>[]) => {
+        (changes: NodeChangeset<XfNode>) => {
             const positionChanges: NodeChange<XfNode>[] = []
             const otherChanges: NodeChange<XfNode>[] = []
             for (const change of changes) {
@@ -27,14 +27,14 @@ export function useOnNodesChangeRaf(applyXfNodeChanges: (nodeChanges: NodeChange
                         const pendingPositionChanges = pendingPositionChangesRef.current
                         pendingPositionChangesRef.current = []
                         if (pendingPositionChanges.length > 0) {
-                            applyXfNodeChanges(pendingPositionChanges)
+                            applyXfNodeChanges(new NodeChangeset(pendingPositionChanges) )
                         }
                     })
                 }
             }
 
             if (otherChanges.length > 0) {
-                applyXfNodeChanges(otherChanges)
+                applyXfNodeChanges(new NodeChangeset(otherChanges))
             }
         },
         [applyXfNodeChanges],

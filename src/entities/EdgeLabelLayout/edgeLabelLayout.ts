@@ -2,6 +2,7 @@ import type { InternalNode } from '@xyflow/react'
 import { getEdgeParams } from '@/entities/FloatingEdge/getEdgeParams.ts'
 import { getSpecialPath } from '@/entities/EdgeLabelLayout/getSpecialPath.ts'
 import type { XfEdge } from '@/shared/types/xyflow.ts'
+import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
 
 // Fallback card size, used only until the real card has been measured for the
 // first time. The real size is adaptive and measured from the rendered card
@@ -54,17 +55,20 @@ type LabelBox = {
 }
 
 function compareIds(a: string, b: string): number {
+	devLog("compareIds", true)
 	// Быстрее, чем localeCompare, и для id (числа/hex/ascii) даёт тот же порядок.
 	return a < b ? -1 : a > b ? 1 : 0
 }
 
 function getParallelEdgeGroupKey(source: string, target: string): string {
+	devLog("getParallelEdgeGroupKey", true)
 	return source < target ? `${source}::${target}` : `${target}::${source}`
 }
 
 export function computeParallelEdgeDeltas(
 	edgeIds: readonly string[],
 ): Map<string, number> {
+	devLog("computeParallelEdgeDeltas", true)
 	const sorted = [...edgeIds].sort(compareIds)
 	const middleIdx = Math.floor(sorted.length / 2)
 	const deltas = new Map<string, number>()
@@ -96,6 +100,7 @@ export function computeParallelEdgeDeltas(
 const PARALLEL_EDGE_BASE_SPACING = 200
 
 export function computeDeltaMultiplier(): number {
+	devLog("computeDeltaMultiplier", true)
 	return PARALLEL_EDGE_BASE_SPACING
 }
 
@@ -106,6 +111,7 @@ export function computeDeltaMultiplier(): number {
 export function computeParallelEdgeDeltasByEdgeId(
 	edges: readonly XfEdge[],
 ): Map<string, number> {
+	devLog("computeParallelEdgeDeltasByEdgeId", true)
 	const parallelGroups = new Map<string, string[]>()
 
 	for (const edge of edges) {
@@ -129,6 +135,7 @@ export function computeParallelEdgeDeltasByEdgeId(
 }
 
 function getLabelCenter(geometry: EdgeGeometry, extraOffset: number) {
+	devLog("getLabelCenter", true)
 	return {
 		x: geometry.labelX + geometry.nx * extraOffset,
 		y: geometry.labelY + geometry.ny * extraOffset,
@@ -136,6 +143,7 @@ function getLabelCenter(geometry: EdgeGeometry, extraOffset: number) {
 }
 
 function getLabelBox(geometry: EdgeGeometry, extraOffset: number): LabelBox {
+	devLog("getLabelBox", true)
 	const { x, y } = getLabelCenter(geometry, extraOffset)
 	const halfW = geometry.size.width / 2 + LABEL_CARD_PADDING
 	const halfH = geometry.size.height / 2 + LABEL_CARD_PADDING
@@ -149,12 +157,14 @@ function getLabelBox(geometry: EdgeGeometry, extraOffset: number): LabelBox {
 }
 
 function boxesOverlap(a: LabelBox, b: LabelBox): boolean {
+	devLog("boxesOverlap", true)
 	return (
 		a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
 	)
 }
 
 function getNodeBoxes(nodeLookup: Map<string, InternalNode>): LabelBox[] {
+	devLog("getNodeBoxes", true)
 	const boxes: LabelBox[] = []
 
 	for (const node of nodeLookup.values()) {
@@ -181,6 +191,7 @@ function getNodeBoxes(nodeLookup: Map<string, InternalNode>): LabelBox[] {
 }
 
 function boxesOverlapAny(box: LabelBox, others: readonly LabelBox[]): boolean {
+	devLog("boxesOverlapAny", true)
 	for (const other of others) {
 		if (boxesOverlap(box, other)) {
 			return true
@@ -197,10 +208,12 @@ function boxesOverlapAny(box: LabelBox, others: readonly LabelBox[]): boolean {
 const SPATIAL_CELL_SIZE = 256
 
 function cellIndex(value: number): number {
+	devLog("cellIndex", true)
 	return Math.floor(value / SPATIAL_CELL_SIZE)
 }
 
 function cellKey(cellX: number, cellY: number): string {
+	devLog("cellKey", true)
 	return `${cellX}:${cellY}`
 }
 
@@ -208,6 +221,7 @@ class BoxIndex {
 	private readonly cells = new Map<string, LabelBox[]>()
 
 	add(box: LabelBox): void {
+		devLog("BoxIndex.add", true)
 		const fromCellX = cellIndex(box.left)
 		const toCellX = cellIndex(box.right)
 		const fromCellY = cellIndex(box.top)
@@ -227,6 +241,7 @@ class BoxIndex {
 	}
 
 	overlapsAny(box: LabelBox): boolean {
+		devLog("BoxIndex.overlapsAny", true)
 		const fromCellX = cellIndex(box.left)
 		const toCellX = cellIndex(box.right)
 		const fromCellY = cellIndex(box.top)
@@ -260,6 +275,7 @@ function findFreeOffset(
 	nodeBoxIndex: BoxIndex,
 	placedBoxIndex: BoxIndex,
 ): number {
+	devLog("findFreeOffset", true)
 	const step = COLLISION_STEP
 	const maxSteps = 200
 
@@ -293,6 +309,7 @@ function resolveCollisions(
 	geometries: readonly EdgeGeometry[],
 	nodeBoxes: readonly LabelBox[],
 ): Map<string, number> {
+	devLog("resolveCollisions", true)
 	// Sort for determinism: the same graph always produces the same layout.
 	const ordered = [...geometries].sort((a, b) =>
 		compareIds(a.edgeId, b.edgeId),
@@ -321,6 +338,8 @@ export function computeEdgeLabelLayout(
 	labelSizes: ReadonlyMap<string, LabelSize> = new Map(),
 	parallelEdgeDeltas: ReadonlyMap<string, number> = computeParallelEdgeDeltasByEdgeId(edges),
 ): Map<string, EdgeLabelLayoutEntry> {
+	devLog("computeEdgeLabelLayout", true)
+
 	const geometries: EdgeGeometry[] = []
 
 	for (const edge of edges) {

@@ -1,20 +1,37 @@
-import {BaseEdge, EdgeLabelRenderer, type EdgeProps, useInternalNode, useStore,} from '@xyflow/react'
+import {BaseEdge, EdgeLabelRenderer, type EdgeProps, useInternalNode,} from '@xyflow/react'
 
-import {memo, type RefObject, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState,} from 'react'
+import {
+    memo,
+    type CSSProperties,
+    type RefObject,
+    useCallback,
+    useContext,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState, createContext, useEffect,
+} from 'react'
 
 import {Button, Collapse, Flex} from 'antd'
 
-import type { XfEdge } from '@/shared/types/xyflow.ts'
-import type { EdgeData } from '@/model/edge/edgeData.ts'
-import { EdgeDatasStateManagerContext } from '@/model/graph/edgeDatasStateManagerContext.ts'
-import { EdgeLabelLayoutVersionContext, EdgeLabelReportSizeContext, EditableContext, edgeLabelViewportMoving } from '@/entities/EdgeLabelLayout/contexts.ts'
-import type { LabelSize } from '@/entities/EdgeLabelLayout/edgeLabelLayout.ts'
-import { getEdgeParams } from '@/entities/FloatingEdge/getEdgeParams.ts'
-import { getSpecialPath } from '@/entities/EdgeLabelLayout/getSpecialPath.ts'
-import { useKeyedEventHandling } from '@/shared/hooks/useKeyedEventHandling.ts'
+import type {XfEdge} from '@/shared/types/xyflow.ts'
+import type {EdgeData} from '@/model/edge/edgeData.ts'
+import {EdgeDatasStateManagerContext} from '@/model/graph/edgeDatasStateManagerContext.ts'
+import {
+    EdgeLabelReportSizeContext,
+    EdgeLabelLayoutContext,
+    EditableContext
+} from '@/entities/EdgeLabelLayout/contexts.ts'
+import type {LabelSize} from '@/entities/EdgeLabelLayout/edgeLabelLayout.ts'
+import {getEdgeParams} from '@/entities/FloatingEdge/getEdgeParams.ts'
+import {getSpecialPath} from '@/entities/EdgeLabelLayout/getSpecialPath.ts'
+import {useKeyedEventHandling} from '@/shared/hooks/useKeyedEventHandling.ts'
 import RenderCountView from "@/shared/dev/RenderCountView.tsx";
 import {createRenderCountDict} from "@/shared/dev/useRenderCountDictRef.tsx";
-import {useEdgeLayoutGetterByIdContext} from "@/entities/EdgeLabelLayout/edgeLayoutGetterByIdContext.ts";
+import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
+import {useEventHandling} from "@/shared/hooks/useEventHandling.ts";
+import {createNormalEvent, type NormalEvent} from "@/shared/lib/events.ts";
+
 
 const FloatingEdge = memo(FloatingEdge1)
 
@@ -22,220 +39,236 @@ export default FloatingEdge
 
 // Запас в пикселях экрана: лейбл чуть за границей вьюпорта всё ещё рендерим,
 // чтобы при небольшом сдвиге карточка не появлялась «из ниоткуда».
-const VISIBLE_LABEL_MARGIN = 256
-// Гистерезис: пока карточка смонтирована, она живёт до границы
-// margin + hysteresis. При быстром панорамировании без этого карточки
-// монтировались/размонтировались пачками каждый кадр.
-const VISIBLE_LABEL_HYSTERESIS = 256
-// Во сколько размеров вьюпорта должен укладываться «размах» связи, чтобы
-// рисовать её SVG-путь. Параллельные связи разъезжаются на десятки тысяч
-// пикселей; такие пути не видны, но браузер всё равно держит их в SVG-слое и
-// перестраивает display list при каждом сдвиге графа.
-const EDGE_NEAR_VIEWPORT_FACTOR = 2
-
 function compareIds(a: string, b: string): number {
-	return a < b ? -1 : a > b ? 1 : 0
+    return a < b ? -1 : a > b ? 1 : 0
 }
 
+type EdgePathLayerProps = {
+    id: string
+    path: string
+    markerEnd: EdgeProps<XfEdge>['markerEnd']
+    style: CSSProperties | undefined
+}
+
+// memo: ребро перерисовывается после пересчёта раскладки, но путь и цвет при
+// этом обычно те же — в профилере BaseEdge съедал ~100 мс на 900 рёбер именно
+// из-за нового объекта style и пересоздания SVG-пути. С memo сам <path> не
+// трогается, пока не изменились path/markerEnd/style.
+/*const EdgePathLayer = memo(function EdgePathLayer({id, path, markerEnd, style}: EdgePathLayerProps) {
+    devLog("EdgePathLayer", true)
+    return (
+        <BaseEdge
+            id={id}
+            className='react-flow__edge-path'
+            path={path}
+            markerEnd={markerEnd}
+            style={style}
+        />
+    )
+})*/
+
+// TODO: у path может быть разный стиль (цвет, толщина), надо будет позаботиться об этом
+export type EdgePathEndTip = {
+    x: number
+    y: number
+    // угол касательной в конце пути, в радианах (координаты SVG, y вниз)
+    angle: number
+}
+
+export type EdgePathChanging = {
+    edgeId: string
+    path?: string,
+    markerEnd?: string,
+    endTip?: EdgePathEndTip,
+    deleted?: boolean
+}
+
+export const EdgePathChangingNotifyContext = createContext<(edgepathChanging: EdgePathChanging) => void>(() => {
+})
+
+// Запрос «опубликуйте свои пути заново». Нужен при первом рендере: CombinedEdgesOur
+// рендерится в портал вьюпорта, а он монтируется после слоя рёбер, поэтому первые
+// публикации рёбер проходят раньше, чем CombinedEdgesOur подпишется на них.
+export const EdgePathPublishRequestContext = createContext<NormalEvent<void>>(createNormalEvent<void>())
+
 function FloatingEdge1(props: EdgeProps<XfEdge>) {
+    devLog("FloatingEdge1", true)
+    const {
+        id: thisEdgeId,
+        source,
+        target,
+        markerEnd,
+        style,
+    } = props
 
-	const {
-		id: thisEdgeId,
-			source,
-			target,
-			markerEnd,
-			style,
-	} = props
+    const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
 
-	const edgeDatasStateManagerContext = useContext(EdgeDatasStateManagerContext)
+    const [data, setData] = useState(
+        edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId),
+    )
 
-	const [data, setData] = useState(
-		edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId),
-	)
+    useKeyedEventHandling(
+        edgeDatasStateManagerContext.edgesStateEvents.edgeDataUpdatedEvent,
+        thisEdgeId,
+        ({newEdgeData}) => {
+            setData(newEdgeData)
+        },
+    )
 
-	useKeyedEventHandling(
-		edgeDatasStateManagerContext.edgesStateEvents.edgeDataUpdatedEvent,
-		thisEdgeId,
-		({ newEdgeData }) => {
-			setData(newEdgeData)
-		},
-	)
+    if (!data) {
+        throw new Error('no data')
+    }
 
-	if (!data) {
-		throw new Error('no data')
-	}
+    const isGenerallyMarkedForDelete =
+        data.isExplicitlyMarkedForDelete ||
+        data.markedForDeleteBecauseNodes.length > 0
 
-	const isGenerallyMarkedForDelete =
-		data.isExplicitlyMarkedForDelete ||
-		data.markedForDeleteBecauseNodes.length > 0
+    const sourceNode = useInternalNode(source)
+    const targetNode = useInternalNode(target)
 
-	const sourceNode = useInternalNode(source)
-	const targetNode = useInternalNode(target)
+    const isEditable = useContext(EditableContext)
 
-	const isEditable = useContext(EditableContext)
-	const reportSize = useContext(EdgeLabelReportSizeContext)
-	// Подписка на версию раскладки: после её пересчёта (например, когда нода
-	// отпущена) ребро должно перерисоваться и взять новые смещения. Само
-	// значение не нужно — раскладка читается через геттер по id.
-	useContext(EdgeLabelLayoutVersionContext)
+    const labelCardRef = useRef<HTMLDivElement>(null)
 
-	const labelCardRef = useRef<HTMLDivElement>(null)
+    const edgeLabelLayout = useContext(EdgeLabelLayoutContext)
+    const layoutEntry = edgeLabelLayout.get(thisEdgeId)
+    const pathDelta = layoutEntry?.pathDelta ?? 0
+    const extraOffset = layoutEntry?.extraOffset ?? 0
+    const deltaMultiplier = layoutEntry?.deltaMultiplier ?? 300
 
-	const layoutEntry = useEdgeLayoutGetterByIdContext().get(thisEdgeId)
-	const pathDelta = layoutEntry?.pathDelta ?? 0
-	const extraOffset = layoutEntry?.extraOffset ?? 0
-	const deltaMultiplier = layoutEntry?.deltaMultiplier ?? 300
+    // Путь зависит от позиций обеих нод и от текущей раскладки лейбла
+    // (pathDelta/extraOffset), поэтому все они в зависимостях. Раньше здесь
+    // стояли только sx/sy, и путь застревал при изменении только лейбла.
+    const edgeGeometry = useMemo(() => {
+        if (!sourceNode?.measured || !targetNode?.measured) {
+            throw new Error("в таком случае возвращалось null")
+        }
 
-	// Путь зависит от позиций обеих нод и от текущей раскладки лейбла
-	// (pathDelta/extraOffset), поэтому все они в зависимостях. Раньше здесь
-	// стояли только sx/sy, и путь застревал при изменении только лейбла.
-	const edgeGeometry = useMemo(() => {
-		if (!sourceNode?.measured || !targetNode?.measured) {
-			return null
-		}
+        // без сортировки связи например с currentDelta 1 и -1 могли накладываться друг на друга, если ведут в разные стороны
+        // наверно какие-то математические приколы
+        const sorted = [sourceNode, targetNode].sort((a, b) =>
+            compareIds(a.id, b.id),
+        )
+        const {sx, sy, tx, ty} = getEdgeParams(sorted[0], sorted[1])
 
-		// без сортировки связи например с currentDelta 1 и -1 могли накладываться друг на друга, если ведут в разные стороны
-		// наверно какие-то математические приколы
-		const sorted = [sourceNode, targetNode].sort((a, b) =>
-			compareIds(a.id, b.id),
-		)
-		const { sx, sy, tx, ty } = getEdgeParams(sorted[0], sorted[1])
+        return getSpecialPath(
+            {
+                sourceX: sx,
+                sourceY: sy,
+                targetX: tx,
+                targetY: ty,
+            },
+            pathDelta,
+            deltaMultiplier,
+            extraOffset,
+        )
+    }, [sourceNode, targetNode, pathDelta, deltaMultiplier, extraOffset])
 
-		return getSpecialPath(
-			{
-				sourceX: sx,
-				sourceY: sy,
-				targetX: tx,
-				targetY: ty,
-			},
-			pathDelta,
-			deltaMultiplier,
-			extraOffset,
-		)
-	}, [sourceNode, targetNode, pathDelta, deltaMultiplier, extraOffset])
+    const strokeColor = (() => {
+        if (isGenerallyMarkedForDelete) return '#ff000044'
+        if (data.sourceOrCreated == 'created') return '#328f4b'
+        return '#b1b1b7'
+    })()
 
-	const strokeColor = (() => {
-		if (isGenerallyMarkedForDelete) return '#ff000044'
-		if (data.sourceOrCreated == 'created') return '#328f4b'
-		return '#b1b1b7'
-	})()
+    // Колбэк стабилен, чтобы memo-карточка не перерисовывалась на каждый кадр
+    // перетаскивания ноды.
+    const onToggleDelete = useCallback(() => {
+        const currentData = edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId)
+        if (!currentData) return
+        edgeDatasStateManagerContext.markEdgeForDelete(
+            thisEdgeId,
+            !currentData.isExplicitlyMarkedForDelete,
+        )
+    }, [edgeDatasStateManagerContext, thisEdgeId])
 
-	// Колбэк стабилен, чтобы memo-карточка не перерисовывалась на каждый кадр
-	// перетаскивания ноды.
-	const onToggleDelete = useCallback(() => {
-		const currentData = edgeDatasStateManagerContext.allEdgeDatasMap.get(thisEdgeId)
-		if (!currentData) return
-		edgeDatasStateManagerContext.markEdgeForDelete(
-			thisEdgeId,
-			!currentData.isExplicitlyMarkedForDelete,
-		)
-	}, [edgeDatasStateManagerContext, thisEdgeId])
+    // Стиль линии мемоизируем: BaseEdge — самый заметный по времени компонент
+    // (в профилере 100 мс на 900 рёбер), а перерисовывался он из-за нового
+    // объекта style на каждый рендер ребра.
+    const edgePathStyle = useMemo(
+        () => ({...style, stroke: strokeColor}),
+        [style, strokeColor],
+    )
 
-	// Позиция карточки в координатах графа. Нужна до условного возврата, чтобы
-	// хук видимости вызывался всегда.
-	const labelX = edgeGeometry?.labelX ?? 0
-	const labelY = edgeGeometry?.labelY ?? 0
+    const {path, labelX, labelY, endX, endY, endAngle} = edgeGeometry
 
-	// Параллельных связей может быть тысяча, и их карточки разлетаются далеко
-	// за пределы вьюпорта. Рендерим лейбл только когда он рядом с видимой
-	// областью: иначе React каждый кадр держит в дереве тысячи порталов
-	// EdgeLabelRenderer, и любое движение графа стоит очень дорого.
-	// Возвращаем число: 0 — связь не рисуем совсем, 1 — только путь,
-	// 2 — путь и карточку. Селектор отдаёт примитив, поэтому при
-	// панорамировании рёбра перерисовываются только когда видимость меняется.
-	// У границ добавлен гистерезис, чтобы на быстром движении карточки не
-	// появлялись и не исчезали каждый кадр.
-	const wasLabelRenderedRef = useRef(false)
-	const edgeVisibility = useStore(state => {
-		const [translateX, translateY, zoom] = state.transform
-		const screenX = labelX * zoom + translateX
-		const screenY = labelY * zoom + translateY
+    const edgePathChangingNotify = useContext(EdgePathChangingNotifyContext)
+    const edgePathPublishRequestEvent = useContext(EdgePathPublishRequestContext)
 
-		const labelMargin = wasLabelRenderedRef.current
-			? VISIBLE_LABEL_MARGIN + VISIBLE_LABEL_HYSTERESIS
-			: VISIBLE_LABEL_MARGIN
-		const labelWidth = state.width + labelMargin
-		const labelHeight = state.height + labelMargin
-		const labelVisible =
-			screenX >= -labelMargin &&
-			screenX <= labelWidth &&
-			screenY >= -labelMargin &&
-			screenY <= labelHeight
+    // Публикуем путь при монтировании и при каждом его изменении.
+    const publishPath = useCallback(() => {
+        edgePathChangingNotify({
+            edgeId: thisEdgeId,
+            markerEnd: markerEnd,
+            path: path,
+            endTip: {x: endX, y: endY, angle: endAngle},
+        })
+    }, [edgePathChangingNotify, thisEdgeId, markerEnd, path, endX, endY, endAngle])
 
-		// Во время движения вьюпорта новые карточки не монтируем: это самая
-		// дорогая часть (antd Collapse + стили), а при быстрой панораме таких
-		// карточек появляются десятки. Уже смонтированные продолжают ехать
-		// вместе с графом. Накопившиеся монтируются после остановки — провайдер
-		// в этот момент увеличивает версию раскладки, и ребро перерисовывается.
-		if (labelVisible && (!edgeLabelViewportMoving.current || wasLabelRenderedRef.current)) {
-			return 2
-		}
+    useEffect(() => {
+        publishPath()
+    }, [publishPath])
 
-		const nearMargin =
-			Math.max(state.width, state.height, 1) * EDGE_NEAR_VIEWPORT_FACTOR
-		if (
-			screenX >= -nearMargin &&
-			screenX <= state.width + nearMargin &&
-			screenY >= -nearMargin &&
-			screenY <= state.height + nearMargin
-		) {
-			return 1
-		}
+    // Убираем путь из общего слоя, когда ребро размонтируется.
+    useEffect(() => {
+        return () => {
+            edgePathChangingNotify({
+                edgeId: thisEdgeId,
+                deleted: true
+            })
+        }
+    }, [edgePathChangingNotify, thisEdgeId])
 
-		return 0
-	})
-	wasLabelRenderedRef.current = edgeVisibility === 2
+    // Отвечаем на запрос CombinedEdgesOur: см. EdgePathPublishRequestContext.
+    // Переподписываемся на изменение publishPath, иначе запрос вернул бы старый путь.
+    useEventHandling(edgePathPublishRequestEvent, publishPath, true, true)
 
-	if (!edgeGeometry || edgeVisibility === 0) {
-		return null
-	}
+    const baseEdgeMemoized = useMemo(() => <BaseEdge
+        id={thisEdgeId}
+        className='react-flow__edge-path'
+        path={path}
+        markerEnd={markerEnd}
+        style={edgePathStyle}
+    />, [edgePathStyle, markerEnd, path, thisEdgeId])
 
-	const { path } = edgeGeometry
+    if (!edgeGeometry) {
+        throw new Error("раньше здесь было return null")
+        //return null
+    }
 
-	return (
-		<>
-			<BaseEdge
-				id={thisEdgeId}
-				className='react-flow__edge-path'
-				path={path}
-				markerEnd={markerEnd}
-				style={{ ...style, stroke: strokeColor }}
-			/>
-			{edgeVisibility === 2 && (
-			<EdgeLabelRenderer>
-				<div
-					className='nodrag nopan'
-					style={{
-						position: 'absolute',
-						pointerEvents: 'all',
-						transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-						overflow: 'hidden',
-					}}
-				>
-					<FloatingEdgeLabelCard
-						edgeId={thisEdgeId}
-						data={data}
-						isEditable={isEditable}
-						isGenerallyMarkedForDelete={isGenerallyMarkedForDelete}
-						onToggleDelete={onToggleDelete}
-						reportSize={reportSize}
-						cardRef={labelCardRef}
-					/>
-				</div>
-			</EdgeLabelRenderer>
-			)}
-		</>
-	)
+    return (
+        <>
+            {/*{baseEdgeMemoized}*/}
+            <EdgeLabelRenderer>
+                <div
+                    className='nodrag nopan'
+                    style={{
+                        position: 'absolute',
+                        pointerEvents: 'all',
+                        transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                        overflow: 'hidden',
+                    }}
+                >
+                    <FloatingEdgeLabelCard
+                        edgeId={thisEdgeId}
+                        data={data}
+                        isEditable={isEditable}
+                        isGenerallyMarkedForDelete={isGenerallyMarkedForDelete}
+                        onToggleDelete={onToggleDelete}
+                        cardRef={labelCardRef}
+                    />
+                </div>
+            </EdgeLabelRenderer>
+        </>
+    )
 }
 
 type FloatingEdgeLabelCardProps = {
-	edgeId: string
-	data: EdgeData
-	isEditable: boolean
-	isGenerallyMarkedForDelete: boolean
-	onToggleDelete: () => void
-	reportSize: (edgeId: string, size: LabelSize) => void
-	cardRef: RefObject<HTMLDivElement | null>
+    edgeId: string
+    data: EdgeData
+    isEditable: boolean
+    isGenerallyMarkedForDelete: boolean
+    onToggleDelete: () => void
+    cardRef: RefObject<HTMLDivElement | null>
 }
 
 // Тяжёлая часть ребра (antd Collapse с карточкой) вынесена в memo: при
@@ -244,98 +277,90 @@ type FloatingEdgeLabelCardProps = {
 const FloatingEdgeLabelCard = memo(FloatingEdgeLabelCard1)
 
 function FloatingEdgeLabelCard1({
-	edgeId,
-	data,
-	isEditable,
-	isGenerallyMarkedForDelete,
-	onToggleDelete,
-	reportSize,
-	cardRef,
-}: FloatingEdgeLabelCardProps) {
-	const {increaseRenderCountDict, renderCountDictView} = useRef(createRenderCountDict()).current
-	increaseRenderCountDict("FloatingEdgeLabelCard")
+                                    edgeId,
+                                    data,
+                                    isEditable,
+                                    isGenerallyMarkedForDelete,
+                                    onToggleDelete,
+                                    cardRef,
+                                }: FloatingEdgeLabelCardProps) {
+    devLog("FloatingEdgeLabelCard1", true)
 
-	// Report the real rendered card size so the layout can separate cards using
-	// their actual dimensions instead of hardcoded guesses.
-	useLayoutEffect(() => {
-		const element = cardRef.current
-		if (!element) return
+    const reportSize = useContext(EdgeLabelReportSizeContext)
 
-		const measure = () => {
-			// offsetWidth/offsetHeight are layout sizes in flow units: they are
-			// unaffected by the viewport zoom and by the translate() that moves
-			// the card, unlike getBoundingClientRect().
-			reportSize(edgeId, {
-				width: element.offsetWidth,
-				height: element.offsetHeight,
-			})
-		}
+    useLayoutEffect(() => {
+        const element = cardRef.current
+        if (!element) return
 
-		// Никакого синхронного замера при монтировании: чтение offsetWidth
-		// внутри useLayoutEffect форсирует reflow всего документа, а при быстрой
-		// панораме карточки монтируются пачками — это и давало подвисания.
-		// ResizeObserver сам пришлёт первое измерение после того, как браузер
-		// посчитает layout, одним батчем на все карточки.
-		const observer = new ResizeObserver(measure)
-		observer.observe(element)
-		return () => observer.disconnect()
-	}, [edgeId, reportSize, cardRef])
+        const reportElementSize = () => {
+            const width = element.offsetWidth
+            const height = element.offsetHeight
+            if (width <= 0 || height <= 0) return
 
-	const currentData = data.currentData
+            reportSize(edgeId, {width, height})
+        }
 
-	return (
-		<div
-			ref={cardRef}
-			style={{
-				position: 'relative',
-			}}
-		>
-			<div
-				style={{
-					position: 'absolute',
-					backgroundColor: data.isExplicitlyMarkedForDelete
-						? 'red'
-						: data.sourceOrCreated == 'created'
-							? 'green'
-							: 'white',
-					width: '100%',
-					height: '100%',
-					opacity: isGenerallyMarkedForDelete ? '0.1' : '0.5',
-					zIndex: -1,
-					borderRadius: 10,
-				}}
-			/>
-			<Collapse
-				items={[
-					{
-						label: (
-							<Flex vertical>
-								{renderCountDictView({})}
-								<RenderCountView/>
-								<div>{currentData.label}</div>
-								<div>{currentData.id}</div>
-							</Flex>
-						),
-						children: (
-							<Flex
-								vertical
-								style={{
-									background: 'transparent',
-								}}
-							>
-								<Button
-									disabled={!isEditable}
-									onClick={onToggleDelete}
-								>
-									{data.isExplicitlyMarkedForDelete
-										? 'undo delete'
-										: 'delete'}
-								</Button>
-							</Flex>
-						),
-					},
-				]}
-			/>
-		</div>
-	)
+        reportElementSize()
+
+        const resizeObserver = new ResizeObserver(reportElementSize)
+        resizeObserver.observe(element)
+
+        return () => resizeObserver.disconnect()
+    }, [cardRef, edgeId, reportSize])
+
+    const currentData = data.currentData
+
+    return (
+        <div
+            ref={cardRef}
+            style={{
+                position: 'relative',
+            }}
+        >
+            <div
+                style={{
+                    position: 'absolute',
+                    backgroundColor: data.isExplicitlyMarkedForDelete
+                        ? 'red'
+                        : data.sourceOrCreated == 'created'
+                            ? 'green'
+                            : 'white',
+                    width: '100%',
+                    height: '100%',
+                    opacity: isGenerallyMarkedForDelete ? '0.1' : '0.5',
+                    zIndex: -1,
+                    borderRadius: 10,
+                }}
+            />
+            <Collapse
+                items={[
+                    {
+                        label: (
+                            <Flex vertical>
+                                <div>{currentData.label}</div>
+                                <div>{currentData.id}</div>
+                            </Flex>
+                        ),
+                        children: (
+                            <Flex
+                                vertical
+                                style={{
+                                    background: 'transparent',
+                                }}
+                            >
+                                <Button
+                                    disabled={!isEditable}
+                                    onClick={onToggleDelete}
+                                >
+                                    {data.isExplicitlyMarkedForDelete
+                                        ? 'undo delete'
+                                        : 'delete'}
+                                </Button>
+                            </Flex>
+                        ),
+                    },
+                ]}
+            />
+        </div>
+    )
 }

@@ -1,12 +1,15 @@
-import { Handle, type NodeProps, Position, useStore } from '@xyflow/react'
+import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { Button, Collapse, Flex } from 'antd'
-import { type CSSProperties, memo, useContext, useMemo, useState } from 'react'
+import {createContext, type CSSProperties, memo, useContext, useMemo, useState} from 'react'
 
 import type { XfNode } from '@/shared/types/xyflow.ts'
 import { NodeDatasStateManagerContext } from '@/model/graph/nodeDatasStateManagerContext.ts'
 import { useKeyedEventHandling } from '@/shared/hooks/useKeyedEventHandling.ts'
 import { EditableContext } from '@/entities/EdgeLabelLayout/contexts.ts'
 import RenderCountView from '@/shared/dev/RenderCountView.tsx'
+import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
+import type {NormalListenableEvent, NormalListenableEventsContainer} from "@/shared/lib/events.ts";
+import {useEventHandling} from "@/shared/hooks/useEventHandling.ts";
 
 const sourceHandleStyle: CSSProperties = {
 	width: '100%',
@@ -49,7 +52,21 @@ const styleEditableFieldInNode: CSSProperties = {
 // ~секунду блокировки сразу после монтирования.
 export const EventNode = memo(EventNode1)
 
+/* Подписка только на то, что реально нужно узлу. useConnection() подписан на
+	// весь объект соединения, который меняется на каждый mousemove при
+	// протягивании связи — и тогда перерисовывались бы ВСЕ ноды графа.
+	// Одна подписка вместо двух: возвращаем либо null (соединения нет), либо id
+	// ноды-источника. На графе в 1000 нод это вдвое меньше уведомлений на кадр.
+	/*const connectionFromNodeId = useStore(state =>
+		state.connection.inProgress
+			? state.connection.fromNode?.id ?? ''
+			: null,
+	)*/
+// есть процесс соединения => string, нет процесса соединения => undefined
+const ConnectionFromNodeIdEventContext = createContext<NormalListenableEvent<string|undefined>>({on: ()=>{console.log("провайдер ConnectionFromNodeIdEventContext не реализован")}, off:()=>{}})
+
 function EventNode1({ id: thisNodeId }: NodeProps<XfNode>) {
+	devLog("EventNode1", true)
 	const nodeDatasStateContext = useContext(NodeDatasStateManagerContext)
 	const initialData = useMemo(
 		() => nodeDatasStateContext.allNodeDatasMap.get(thisNodeId),
@@ -59,20 +76,13 @@ function EventNode1({ id: thisNodeId }: NodeProps<XfNode>) {
 	const [data, setData] = useState(initialData)
 	const [isEdit, setIsEdit] = useState<boolean>(false)
 
-	// Подписка только на то, что реально нужно узлу. useConnection() подписан на
-	// весь объект соединения, который меняется на каждый mousemove при
-	// протягивании связи — и тогда перерисовывались бы ВСЕ ноды графа.
-	// Одна подписка вместо двух: возвращаем либо null (соединения нет), либо id
-	// ноды-источника. На графе в 1000 нод это вдвое меньше уведомлений на кадр.
-	const connectionFromNodeId = useStore(state =>
-		state.connection.inProgress
-			? state.connection.fromNode?.id ?? ''
-			: null,
-	)
-	const isConnectionInProgress = connectionFromNodeId !== null
-
-	const isTarget =
-		isConnectionInProgress && connectionFromNodeId !== thisNodeId
+	const [connectionFromNodeId, setConnectionFromNodeId] = useState<string|undefined>(undefined)
+	const isConnectionInProgress = connectionFromNodeId !== undefined
+	const isTarget = isConnectionInProgress && connectionFromNodeId !== thisNodeId
+	const connectionFromNodeIdEvent = useContext(ConnectionFromNodeIdEventContext)
+	useEventHandling(connectionFromNodeIdEvent, v=>{
+		setConnectionFromNodeId(v)
+	})
 
 	const isEditable = useContext(EditableContext)
 

@@ -21,12 +21,18 @@ import type {
 // Параметры dev графа: (source ноды, created ноды, source связи, created связи, seed).
 // Крути эти числа, когда хочется поиграться на графе побольше трёх нод.
 export const devGraphGeneratorParams: DevGraphGeneratorParams = {
-	sourceNodesCount: 50,
-	createdNodesCount: 50,
-	sourceEdgesCount: 40,
-	createdEdgesCount: 40,
+	sourceNodesCount: 1000,
+	createdNodesCount: 0,
+	sourceEdgesCount: 0,
+	createdEdgesCount: 0,
 	randomSeed: 12345,
-}
+}/*export const devGraphGeneratorParams: DevGraphGeneratorParams = {
+	sourceNodesCount: 300,
+	createdNodesCount: 200,
+	sourceEdgesCount: 400,
+	createdEdgesCount: 400,
+	randomSeed: 12345,
+}*/
 
 export function useInitializeEffect(
 	isInitialized: React.RefObject<boolean>,

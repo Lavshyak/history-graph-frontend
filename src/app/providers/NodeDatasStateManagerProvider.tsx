@@ -4,7 +4,7 @@ import {NodeDatasStateManagerContext} from "@/model/graph/nodeDatasStateManagerC
 import useDevRenderCountLogging from "@/shared/dev/useRenderCountLogging.ts";
 
 export function NodeDatasStateManagerProvider({children}: { children: ReactNode }) {
-    useDevRenderCountLogging("NodeDatasStateManagerProvider")
+    useDevRenderCountLogging("NodeDatasStateManagerProvider", true)
     const nodeDatasStateManager = useRef(createNodeDatasStateManager()).current
 
     return (<NodeDatasStateManagerContext value={nodeDatasStateManager}>

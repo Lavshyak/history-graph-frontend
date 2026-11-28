@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
+import {devLog} from "@/shared/dev/isDevLoggingEnabled.ts";
 
 /**
  * Возвращает «перерисуйся», схлопывающее частые вызовы в один рендер не чаще
@@ -10,6 +11,7 @@ import {useCallback, useEffect, useRef, useState} from 'react'
  * потока.
  */
 export function useThrottledRerender(intervalMs: number = 150) {
+    devLog("useThrottledRerender", true)
     const [, setVersion] = useState(0)
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastRenderTimeRef = useRef(0)

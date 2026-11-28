@@ -6,6 +6,9 @@ import type { XfNode } from '@/shared/types/xyflow.ts'
 import RenderCountView from "@/shared/dev/RenderCountView.tsx";
 import useRenderCountLogging from "@/shared/dev/useRenderCountLogging.ts";
 
+/**
+ * Видна при соединении нод
+ */
 function ConnectionLine({
 	fromX,
 	fromY,
@@ -13,7 +16,7 @@ function ConnectionLine({
 	toY,
 	connectionLineStyle,
 }: ConnectionLineComponentProps<XfNode>) {
-	useRenderCountLogging("ConnectionLine")
+	useRenderCountLogging("ConnectionLine", true)
 
 	const [edgePath] = getStraightPath({
 		sourceX: fromX,

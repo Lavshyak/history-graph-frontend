@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useContext, useRef, useState } from 'react'
+import {useCallback, useContext, useRef, useState} from 'react'
 import '@xyflow/react/dist/style.css'
 import {
 	Button,
@@ -10,6 +10,7 @@ import {
 	Switch,
 	Typography,
 } from 'antd'
+import { useStore } from 'zustand/react'
 import { ContextMenu } from '@/widgets/ContextMenu/ContextMenu.tsx'
 import '@/widgets/GraphBoard/graphBoard.css'
 import sort from '@/shared/assets/sort.svg'
@@ -17,25 +18,22 @@ import sortGraph from '@/shared/assets/sortGraph.svg'
 import SortAndSearchPanel from '@/widgets/SortAndSearchPanel/SortAndSearchPanel.tsx'
 
 import {
-	Background,
 	ControlButton,
 	Controls,
 	type FinalConnectionState,
-	MarkerType,
-	ReactFlow,
-	useReactFlow,
+	type NodeChangeset,
+	type OnNodesChange,
+	useReactFlow, ViewportPortal,
 	type XYPosition,
 } from '@xyflow/react'
 
 import type { ContextMenuParams } from '@/widgets/ContextMenu/ContextMenuParams.ts'
 import type { NodeDataIdType } from '@/model/node/nodeData.ts'
-import type { XfEdge, XfNode } from '@/shared/types/xyflow.ts'
-import ConnectionLine from '@/entities/ConnectionLine/ConnectionLine.tsx'
+import type { XfNode } from '@/shared/types/xyflow.ts'
 import { EdgeDatasStateManagerContext } from '@/model/graph/edgeDatasStateManagerContext.ts'
+import { XfEdgesContext } from '@/model/graph/xfEdgesContext.ts'
 import { EdgeLabelLayoutProvider } from '@/entities/EdgeLabelLayout/EdgeLabelLayoutProvider.tsx'
 import { EditableContext } from '@/entities/EdgeLabelLayout/contexts.ts'
-import { EventNode } from '@/entities/EventNode/EventNode.tsx'
-import FloatingEdge from '@/entities/FloatingEdge/FloatingEdge.tsx'
 import { ForceRerenderContext } from '@/model/graph/forceRerenderContext.ts'
 import { GraphDataHasChangesContext } from '@/model/graph/graphDataHasChangesContext.ts'
 import { NodeDatasStateManagerContext } from '@/model/graph/nodeDatasStateManagerContext.ts'
@@ -45,36 +43,20 @@ import { useGetHistoryGetall } from '@/api/generated/hooks/HistoryHooks/useGetHi
 import { useToggleStore } from '@/shared/UiStore/useToggleStore.ts'
 import { prettifyGraph } from '@/model/graph/prettifyGraph.ts'
 import GraphChangesSummary from '@/widgets/GraphChangesSummary/GraphChangesSummary.tsx'
-import { useXfNodesLocalState } from '@/widgets/GraphBoard/hooks/useXfNodesLocalState.ts'
+import { useXfNodesLocalStore } from '@/widgets/GraphBoard/hooks/useXfNodesLocalState.ts'
 import { useXfEdgesLocalState } from '@/widgets/GraphBoard/hooks/useXfEdgesLocalState.ts'
+import { GraphFlowCanvas } from '@/widgets/GraphBoard/GraphFlowCanvas.tsx'
 import { useOnNodeContextMenuCallback } from '@/widgets/GraphBoard/hooks/useOnNodeContextMenuCallback.ts'
 import { useOnNodesChangeRaf } from '@/widgets/GraphBoard/hooks/useOnNodesChangeRaf.ts'
-import { useRafThrottledPan } from '@/widgets/GraphBoard/hooks/useRafThrottledPan.ts'
 import { useInitializeEffect } from '@/widgets/GraphBoard/hooks/useInitializeEffect.ts'
 import useRenderCountLogging from '@/shared/dev/useRenderCountLogging.ts'
 import RenderCountView from '@/shared/dev/RenderCountView.tsx'
-
-const connectionLineStyle = {
-	stroke: '#b1b1b7',
-}
-
-const nodeTypesForXyflow = {
-	EventNode: EventNode,
-}
-
-const edgeTypes = {
-	FloatingEdge: FloatingEdge,
-}
-
-const defaultEdgeOptions = {
-	markerEnd: {
-		type: MarkerType.ArrowClosed,
-		color: '#b1b1b7',
-	},
-}
+import {CombinedEdgesOur, EdgePathChangedEventContext} from "@/entities/CombinedEdgesOur.tsx";
+import {createNormalEvent} from "@/shared/lib/events.ts";
+import {type EdgePathChanging, EdgePathChangingNotifyContext, EdgePathPublishRequestContext} from "@/entities/FloatingEdge/FloatingEdge.tsx";
 
 export function GraphBoard() {
-	useRenderCountLogging('GraphBoard')
+	useRenderCountLogging('GraphBoard', true)
 
 	const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 	const edgeDatasStateManager = useContext(EdgeDatasStateManagerContext)
@@ -82,6 +64,8 @@ export function GraphBoard() {
 	const { forceRerender } = useContext(ForceRerenderContext)
 
 	const [isEditable, setIsEditable] = useState<boolean>(true)
+	const [isNodeDragging, setIsNodeDragging] = useState(false)
+	const [layoutRevision, setLayoutRevision] = useState(0)
 	const { isOpenPanelSortAndSearch } = useToggleStore(state => state)
 	const { toggleOpenPanelSearchAndSort, toggleSortGraph } = useToggleStore(
 		state => state,
@@ -91,12 +75,25 @@ export function GraphBoard() {
 		new Map<NodeDataIdType, XYPosition>(),
 	).current
 
-	const {
-		xfNodes,
-		addXfNode,
-		applyXfNodeChanges,
-		setXfNodePositions,
-	} = useXfNodesLocalState(recommendedNodePositionsOnAdd, nodeDatasStateManager)
+	const xfNodesStore = useXfNodesLocalStore(
+		recommendedNodePositionsOnAdd,
+		nodeDatasStateManager,
+	)
+	const xfNodesCount = useStore(xfNodesStore, state => state.xfNodes.length)
+	const addXfNode = useCallback(
+		(nodeId: NodeDataIdType) => xfNodesStore.getState().addXfNode(nodeId),
+		[xfNodesStore],
+	)
+	const applyXfNodeChanges = useCallback(
+		(changes: NodeChangeset<XfNode>) =>
+			xfNodesStore.getState().applyXfNodeChanges(changes),
+		[xfNodesStore],
+	)
+	const setXfNodePositions = useCallback(
+		(positions: ReadonlyMap<string, XYPosition>) =>
+			xfNodesStore.getState().setXfNodePositions(positions),
+		[xfNodesStore],
+	)
 
 	const { xfEdges, addXfEdge, removeXfEdge, applyXfEdgeChanges } =
 		useXfEdgesLocalState(edgeDatasStateManager)
@@ -108,13 +105,26 @@ export function GraphBoard() {
 	const sortLayoutRequestId = useRef(0)
 
 	const onNodesChangeRaf = useOnNodesChangeRaf(applyXfNodeChanges)
+	const onNodesChange = useCallback<OnNodesChange<XfNode>>(
+		changes => {
+			let dimensionsChanged = false
+			for (const change of changes) {
+				if (change.type === 'dimensions') dimensionsChanged = true
+			}
+			onNodesChangeRaf(changes)
+			if (dimensionsChanged) {
+				setLayoutRevision(revision => revision + 1)
+			}
+		},
+		[onNodesChangeRaf],
+	)
 	const handleSortGraph = useCallback(async () => {
 		const nextIsSortGraph = !useToggleStore.getState().isSortGraph
 		toggleSortGraph(nextIsSortGraph)
 		const requestId = ++sortLayoutRequestId.current
 
 		const positions = await prettifyGraph(
-			xfNodes.map(node => node.id),
+			xfNodesStore.getState().xfNodes.map(node => node.id),
 			xfEdges.map(edge => ({
 				id: edge.id,
 				source: edge.source,
@@ -130,11 +140,12 @@ export function GraphBoard() {
 			),
 		)
 		requestAnimationFrame(() => {
+			setLayoutRevision(revision => revision + 1)
 			void reactFlowInstance.fitView()
 		})
 	}, [
 		toggleSortGraph,
-		xfNodes,
+		xfNodesStore,
 		xfEdges,
 		setXfNodePositions,
 		reactFlowInstance,
@@ -148,13 +159,10 @@ export function GraphBoard() {
 		setMenu,
 	)
 
-	// Свой пан вместо встроенного (panOnDrag={false}): xyflow обновляет стор на
-	// каждое событие мыши, что на тысячах связей вешает главный поток на
-	// быстром движении. Здесь вьюпорт применяется раз в кадр.
-	useRafThrottledPan(reactFlowComponentRef)
-
 	// Close the context menu if it's open whenever the window is clicked.
 	const onPaneClick = useCallback(() => setMenu(null), [setMenu])
+	const onNodeDragStart = useCallback(() => setIsNodeDragging(true), [])
+	const onNodeDragStop = useCallback(() => setIsNodeDragging(false), [])
 
 	useEventHandling(
 		nodeDatasStateManager.nodesStateEvents.nodeAddedEvent,
@@ -203,6 +211,10 @@ export function GraphBoard() {
 		[edgeDatasStateManager],
 	)
 
+	const edgePathChangedEvent = useRef(createNormalEvent<EdgePathChanging>()).current
+	const edgePathChangingNotify = useRef(edgePathChangedEvent.emit).current
+	const edgePathPublishRequestEvent = useRef(createNormalEvent<void>()).current
+
 	return (
 		<Splitter
 			className='all-view-splitter'
@@ -211,7 +223,7 @@ export function GraphBoard() {
 			<Splitter.Panel
 				collapsible={{ start: true, end: true, showCollapsibleIcon: true }}
 				min='20%'
-				defaultSize='80%'
+				defaultSize='100%'
 			>
 				<div style={{}}>
 					<RenderCountView />
@@ -221,28 +233,36 @@ export function GraphBoard() {
 							<div style={{ color: 'black', backgroundColor: 'white' }}>
 								<div style={{ height: '70vh', width: '100%' }}>
 									<EditableContext.Provider value={isEditable}>
-										<EdgeLabelLayoutProvider>
-											<ReactFlow
-												ref={reactFlowComponentRef}
-												nodes={xfNodes as XfNode[]}
-												edges={xfEdges as XfEdge[]}
-												onNodesChange={onNodesChangeRaf}
-												onEdgesChange={applyXfEdgeChanges}
-												minZoom={0.04} // максимальное отдаление
-												maxZoom={3} // максимальное приближение
-												fitView
-												nodeTypes={nodeTypesForXyflow}
-												edgeTypes={edgeTypes}
-												defaultEdgeOptions={defaultEdgeOptions}
-												connectionLineComponent={ConnectionLine}
-												connectionLineStyle={connectionLineStyle}
-												onPaneContextMenu={onNodeContextMenu}
-												onPaneClick={onPaneClick}
-												// Панорамируем сами, по кадрам (useRafThrottledPan).
-												panOnDrag={false}
-												onConnectEnd={onConnectEnd}
-												connectOnClick={false}
+										<EdgePathPublishRequestContext.Provider value={edgePathPublishRequestEvent}>
+										<EdgePathChangingNotifyContext.Provider value={edgePathChangingNotify}>
+										<EdgePathChangedEventContext.Provider value={edgePathChangedEvent}>
+										<XfEdgesContext.Provider value={xfEdges}>
+										<EdgeLabelLayoutProvider
+											isNodeDragging={isNodeDragging}
+											nodeCount={xfNodesCount}
+											layoutRevision={layoutRevision}
+										>
+											<GraphFlowCanvas
+												nodesStore={xfNodesStore}
+												edges={xfEdges}
+												flowRef={reactFlowComponentRef}
+												flowProps={{
+													onNodesChange,
+													onNodeDragStart,
+													onNodeDragStop,
+													onEdgesChange: applyXfEdgeChanges,
+													minZoom: 0.04,
+													maxZoom: 3,
+													fitView: true,
+													onPaneContextMenu: onNodeContextMenu,
+													onPaneClick,
+													onConnectEnd,
+													connectOnClick: false,
+												}}
 											>
+												<ViewportPortal>
+													<CombinedEdgesOur/>
+												</ViewportPortal>
 												<RenderCountView />
 												<Controls showInteractive={true}>
 													<ControlButton
@@ -262,7 +282,6 @@ export function GraphBoard() {
 														<img src={sortGraph} alt='sortGraph' width={16} />
 													</ControlButton>
 												</Controls>
-												<Background />
 												{menu && (
 													<ContextMenu
 														onClick={onPaneClick}
@@ -271,8 +290,12 @@ export function GraphBoard() {
 													/>
 												)}
 												{isOpenPanelSortAndSearch && <SortAndSearchPanel />}
-											</ReactFlow>
+											</GraphFlowCanvas>
 										</EdgeLabelLayoutProvider>
+										</XfEdgesContext.Provider>
+										</EdgePathChangedEventContext.Provider>
+										</EdgePathChangingNotifyContext.Provider>
+										</EdgePathPublishRequestContext.Provider>
 									</EditableContext.Provider>
 								</div>
 							</div>
@@ -303,7 +326,7 @@ export function GraphBoard() {
 							</div>
 							<Divider style={{ borderColor: 'green' }} />
 							<div style={{ color: 'white' }}>
-								Total nodes {xfNodes.length}, edges {xfEdges.length}
+								Total nodes {xfNodesCount}, edges {xfEdges.length}
 							</div>
 							<Divider style={{ borderColor: 'green' }} />
 							<Divider style={{ borderColor: 'green' }} />

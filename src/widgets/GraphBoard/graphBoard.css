@@ -26,15 +26,40 @@
 }
 
 /*
-  Панорамирование делает свой хук (useRafThrottledPan), а не встроенный пан
-  xyflow, поэтому класс `draggable` (и его курсор) xyflow не ставит. Класс
-  `dragging` приходит из стора: хук выставляет paneDragging, как это делал бы
-  сам xyflow.
+  Слой всех связей, нарисованных одним <svg>/<path> (см. CombinedEdgesOur.tsx).
+
+  Почему так: React Flow рисует на каждое ребро отдельный <g> + <path>, и на сотнях
+  рёбер именно это дорого стоит при pan/zoom. Один общий <path> снимает N * 2 DOM
+  узлов и делает весь слой связей одной целью отрисовки/хит-теста.
+
+  Слой живёт в трансформированном вьюпорте (ViewportPortal), поэтому пути задаются
+  в координатах графа и не пересчитываются при пане/зуме. Портал вьюпорта
+  добавляется после слоя нод, поэтому z-index: -1 уводит связи под ноды.
 */
-.react-flow__pane {
-    cursor: grab;
+.react-flow__edges-combined {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Пути выходят за границы контейнера — без этого svg их обрежет. */
+    overflow: visible;
+    pointer-events: none;
+    z-index: -1;
 }
 
-.react-flow__pane.dragging {
-    cursor: grabbing;
+.react-flow__edge-path-combined {
+    fill: none;
+    stroke: var(--xy-edge-stroke, var(--xy-edge-stroke-default));
+    stroke-width: var(--xy-edge-stroke-width, var(--xy-edge-stroke-width-default));
+}
+
+/*
+  Стрелки (markerEnd) нарисованы вручную и сложены в общий <path>: SVG ставит
+  marker-end только в конец всего составного пути, поэтому на общий склеенный path
+  попала бы одна стрелка на все рёбра. Геометрия маркера берётся из <marker>
+  в defs React Flow (см. CombinedEdgesOur.tsx), а не дублируется здесь.
+*/
+.react-flow__edge-arrow-combined {
+    pointer-events: none;
 }

@@ -7,7 +7,7 @@ import {EdgeDatasStateManagerContext} from "@/model/graph/edgeDatasStateManagerC
 import useDevRenderCountLogging from "@/shared/dev/useRenderCountLogging.ts";
 
 export function EdgeDatasStateManagerProvider({children}: { children: ReactNode }) {
-    useDevRenderCountLogging("EdgeDatasStateManagerProvider")
+    useDevRenderCountLogging("EdgeDatasStateManagerProvider", true)
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
 
     const edgeDatasStateManager = useRef(

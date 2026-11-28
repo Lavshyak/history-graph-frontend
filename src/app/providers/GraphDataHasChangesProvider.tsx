@@ -6,7 +6,7 @@ import {GraphDataHasChangesContext} from "@/model/graph/graphDataHasChangesConte
 import useDevRenderCountLogging from "@/shared/dev/useRenderCountLogging.ts";
 
 export function GraphDataHasChangesProvider({children}: { children: ReactNode }) {
-    useDevRenderCountLogging("GraphDataHasChangesProvider")
+    useDevRenderCountLogging("GraphDataHasChangesProvider", true)
     const [hasChanges, setHasChanges] = useState<boolean>(false);
 
     const nodeDatasStateManager = useContext(NodeDatasStateManagerContext)
