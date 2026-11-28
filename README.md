@@ -1,5 +1,7 @@
 > **License:** proprietary / source-available — see [LICENSE](LICENSE). Not open source.
 
+https://github.com/users/Lavshyak/projects/5/views/5
+
 Ну там npm i да, в package.json всякие конфигурации запуска.\
 Backend: https://github.com/Lavshyak/HistoryGraphBackend \
 
